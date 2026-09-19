@@ -1,0 +1,16 @@
+{
+  "name": "Iron Ledger",
+  "short_name": "Iron Ledger",
+  "description": "Home lifting program, macro tracking, recipes, and progress tracking — all in one app.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#17191a",
+  "theme_color": "#17191a",
+  "orientation": "portrait-primary",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
