@@ -413,6 +413,13 @@
   .modal-message { font-size: 14px; color: var(--text); line-height: 1.5; }
   .modal-actions { display: flex; gap: 10px; margin-top: 14px; }
   .modal-actions .btn { flex: 1; }
+
+  /* Barcode scanner */
+  .bc-reader { width: 100%; min-height: 200px; background: var(--panel-2); border-radius: var(--radius-s); overflow: hidden; }
+  .bc-status { font-size: 12.5px; color: var(--text-dim); margin-top: 10px; line-height: 1.5; }
+  .bc-status.warn { color: var(--rust); }
+  .si-buy { background: none; border: 1px solid var(--border); color: var(--sage); cursor: pointer; font-size: 13px; padding: 4px 8px; border-radius: var(--radius-s); line-height: 1; }
+  .si-buy:hover { border-color: var(--sage); }
 </style>
 </head>
 <body>
@@ -474,6 +481,20 @@
         <input type="text" id="dbSearch" placeholder="e.g. chicken, oats, almonds, banana" autocomplete="off">
         <div class="db-results" id="dbResults"></div>
       </div>
+      <div class="or-divider">or scan a barcode</div>
+      <button class="btn ghost small" id="scanFoodBarcodeBtn" type="button" style="width:100%;">📷 Scan barcode</button>
+      <div class="add-food-card" id="scanFoodPreview" style="display:none; margin:10px 0 0; padding:12px;">
+        <div class="db-result-name" id="scanFoodName"></div>
+        <label id="scanServingRow" style="display:flex; align-items:center; gap:6px; font-size:12.5px; color:var(--text-dim); margin:8px 0;">
+          <input type="checkbox" id="scanUseServing" checked><span id="scanServingLabel">Use per-serving values</span>
+        </label>
+        <div class="field-row">
+          <div class="field"><label class="f" id="scanQtyLabel">Quantity</label><input type="text" inputmode="decimal" id="scanMultiplier" value="1"></div>
+        </div>
+        <div class="db-result-macros" id="scanMacroPreview"></div>
+        <button class="btn small" id="useScannedBtn" type="button" style="margin-top:8px;">Use these values</button>
+      </div>
+
       <div class="or-divider">or enter manually</div>
       <div class="field-row">
         <div class="field"><label class="f">Food name</label><input type="text" id="fName" placeholder="e.g. Chicken breast, 6oz"></div>
@@ -506,8 +527,10 @@
       <div class="pantry-add-row">
         <input type="text" id="pantryInput" placeholder="e.g. chicken, rice, eggs, spinach" autocomplete="off">
         <button class="btn small" id="pantryAddBtn">Add</button>
+        <button class="btn small ghost" id="pantryScanBtn" type="button" title="Scan barcode to add">📷</button>
       </div>
       <div class="pantry-chips" id="pantryChips"></div>
+      <button class="btn ghost small" id="clearPantryBtn" style="margin-top:12px; width:auto;">Clear pantry</button>
     </div>
 
     <div class="sec-head" style="margin-top:0;"><h3>Suggested recipes</h3><button class="link-btn" id="toggleReadyFilter">Ready to cook only</button></div>
@@ -520,6 +543,12 @@
       <div class="budget-row">
         <span class="sub" style="font-size:12.5px; color:var(--text-dim);">Weekly grocery budget</span>
         <div class="field"><input type="text" inputmode="decimal" id="budgetInput" value="85"></div>
+      </div>
+      <button class="btn ghost small" id="shopScanBtn" type="button" style="margin-bottom:10px;">📷 Scan to add item</button>
+      <div class="field-row" style="margin-bottom:12px;">
+        <div class="field"><input type="text" id="shopManualName" placeholder="or add an item by name"></div>
+        <div class="field" style="max-width:80px;"><input type="text" inputmode="decimal" id="shopManualPrice" placeholder="$"></div>
+        <button class="btn small" id="shopManualAddBtn" type="button">Add</button>
       </div>
       <div id="shopItems"></div>
       <div class="shop-total-row">
@@ -734,6 +763,23 @@
     </div>
 
     <div class="settings-card">
+      <h4>Barcode lookup (optional)</h4>
+      <div class="note" style="margin-top:0;">The barcode scanner uses Open Food Facts by default — free, no signup, and this works for anyone using the app with no setup. You can also connect a free USDA FoodData Central key, which is often more accurate for U.S. packaged foods and gets offered as a second option whenever a scan looks wrong. This key is only saved on this device — everyone using the app can (and can skip) set up their own.</div>
+      <label class="f" style="margin-top:12px;">USDA API key</label>
+      <input type="text" id="usdaKeyInput" placeholder="Paste your key here — leave blank to skip" autocomplete="off">
+      <button class="link-btn" id="toggleUsdaHelp" style="padding:4px 0 0;">How do I get a free key?</button>
+      <div id="usdaHelpBox" style="display:none; margin-top:8px;">
+        <ol style="margin:0; padding-left:18px; font-size:12.5px; color:var(--text-dim); line-height:1.7;">
+          <li>Open <a href="https://fdc.nal.usda.gov/api-key-signup" target="_blank" rel="noreferrer" style="color:var(--brass);">fdc.nal.usda.gov/api-key-signup</a> (a U.S. government site — free, no payment, no approval wait).</li>
+          <li>Enter your name and email, then submit the form.</li>
+          <li>Check that email — the key arrives within a couple of minutes.</li>
+          <li>Copy it and paste it into the field above. That's it.</li>
+        </ol>
+        <div class="note" style="margin-top:8px;">Not comfortable doing that? Just leave the field blank — barcode scanning keeps working exactly as it does today, no change needed.</div>
+      </div>
+    </div>
+
+    <div class="settings-card">
       <h4>Data</h4>
       <div class="note" style="margin-top:0;">Everything is stored privately in this browser only — nothing leaves your device. Clearing it removes all logged food and workout history.</div>
       <button class="btn ghost" id="resetAllBtn" style="margin-top:10px;">Clear all data</button>
@@ -753,6 +799,45 @@
   </div>
 </div>
 
+<div class="modal-overlay" id="barcodeOverlay" style="display:none;">
+  <div class="modal-box" style="max-width:380px;">
+    <div id="bcStepScan">
+      <div id="bcReader" class="bc-reader"></div>
+      <div class="bc-status" id="bcStatus"></div>
+      <form id="bcManualForm" class="field-row" style="margin-top:10px;">
+        <div class="field"><input type="text" inputmode="numeric" id="bcManualInput" placeholder="or type the barcode number"></div>
+        <button class="btn small" type="submit">Look up</button>
+      </form>
+    </div>
+
+    <div id="bcStepReview" style="display:none;">
+      <div class="db-result-name" id="bcReviewName"></div>
+      <div class="db-result-macros" id="bcReviewMacros" style="margin:6px 0 10px;"></div>
+      <div class="bc-status" id="bcReviewStatus" style="margin:0 0 10px;"></div>
+      <button class="btn small" id="bcUseBtn" type="button" style="margin-bottom:8px;">✓ Use this item</button>
+      <button class="btn ghost small" id="bcTryOtherBtn" type="button" style="display:none; margin-bottom:8px;"></button>
+      <button class="btn ghost small" id="bcNotRightBtn" type="button" style="margin-bottom:8px;">Not right? Search by name</button>
+      <button class="btn ghost small" id="bcManualFallbackBtn" type="button">✎ Enter it manually instead</button>
+    </div>
+
+    <div id="bcStepSearch" style="display:none;">
+      <div class="filter-row" id="bcSearchSourceRow" style="display:none; margin-bottom:10px;">
+        <button type="button" class="chip active" id="bcSourceOff" data-source="off">Open Food Facts</button>
+        <button type="button" class="chip" id="bcSourceUsda" data-source="usda">USDA</button>
+      </div>
+      <form id="bcSearchForm" class="field-row">
+        <div class="field"><input type="text" id="bcSearchInput" placeholder="Search by product name..."></div>
+        <button class="btn small" type="submit">Search</button>
+      </form>
+      <div class="bc-status" id="bcSearchStatus"></div>
+      <div class="lib-list" id="bcSearchResults" style="max-height:220px;"></div>
+      <button class="btn ghost small" id="bcBackToScanBtn" type="button" style="margin-top:4px; width:100%;">‹ Back to scan</button>
+    </div>
+
+    <button class="btn ghost small" id="bcCancelBtn" style="margin-top:10px; width:100%;">Cancel</button>
+  </div>
+</div>
+
 <nav class="bottom">
   <div class="nav-inner">
     <button class="nav-btn active" data-view="today"><span class="ic">◧</span>Today</button>
@@ -763,6 +848,7 @@
   </div>
 </nav>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
 <script>
 (function(){
   "use strict";
@@ -792,6 +878,18 @@
     function cleanup(){ closeModal(); yesBtn.removeEventListener('click', yesHandler); noBtn.removeEventListener('click', noHandler); }
     yesBtn.addEventListener('click', yesHandler);
     noBtn.addEventListener('click', noHandler);
+  }
+  function showAlert(message){
+    const overlay = document.getElementById('modalOverlay');
+    document.getElementById('modalMessage').textContent = message;
+    document.getElementById('modalInput').style.display = 'none';
+    const yesBtn = document.getElementById('modalYesBtn');
+    const noBtn = document.getElementById('modalNoBtn');
+    noBtn.style.display = 'none';
+    overlay.style.display = 'flex';
+    function yesHandler(){ cleanup(); }
+    function cleanup(){ closeModal(); yesBtn.removeEventListener('click', yesHandler); noBtn.style.display = ''; }
+    yesBtn.addEventListener('click', yesHandler);
   }
   function showPrompt(message, defaultValue, onSubmit){
     const overlay = document.getElementById('modalOverlay');
@@ -887,6 +985,20 @@
       } catch(e){}
       location.reload();
     });
+  });
+
+  // ---------- USDA FoodData Central key (optional, per-device) ----------
+  function getUsdaKey(){ return safeGet('il_usda_key', ''); }
+  function setUsdaKey(k){ safeSet('il_usda_key', k); }
+  function hasUsdaKey(){ return !!getUsdaKey(); }
+
+  document.getElementById('usdaKeyInput').value = getUsdaKey();
+  document.getElementById('usdaKeyInput').addEventListener('input', function(){
+    setUsdaKey(this.value.trim());
+  });
+  document.getElementById('toggleUsdaHelp').addEventListener('click', function(){
+    const box = document.getElementById('usdaHelpBox');
+    box.style.display = box.style.display === 'none' ? 'block' : 'none';
   });
 
   // ---------- food log ----------
@@ -1005,6 +1117,418 @@
     card.style.display = card.style.display === 'none' ? 'block' : 'none';
   });
 
+  // ---------- barcode scanner (shared across food log, pantry, shopping list) ----------
+  // Crowd-sourced barcode data is sometimes wrong or mismatched (a scanned
+  // can of garbanzo beans came back as a different product entirely), so a
+  // lookup never gets used silently — it always lands on a review step the
+  // caller has to confirm, with a name-search or manual-entry way out.
+  let bcInstance = null;
+  let bcActive = false;
+  let bcHandlers = null; // { onUse(product), onManual() }
+  let bcLastProduct = null;
+  let bcLastBarcode = null;
+  let bcSearchSource = 'off';
+
+  function bcSetStatus(msg, isWarn){
+    const el = document.getElementById('bcStatus');
+    if(!el) return;
+    el.textContent = msg || '';
+    el.classList.toggle('warn', !!isWarn);
+  }
+
+  function bcShowStep(step){
+    document.getElementById('bcStepScan').style.display = step === 'scan' ? 'block' : 'none';
+    document.getElementById('bcStepReview').style.display = step === 'review' ? 'block' : 'none';
+    document.getElementById('bcStepSearch').style.display = step === 'search' ? 'block' : 'none';
+  }
+
+  function bcUpdateSearchSourceUI(){
+    const row = document.getElementById('bcSearchSourceRow');
+    if(hasUsdaKey()){
+      row.style.display = 'flex';
+    } else {
+      row.style.display = 'none';
+      bcSearchSource = 'off';
+    }
+    document.getElementById('bcSourceOff').classList.toggle('active', bcSearchSource === 'off');
+    document.getElementById('bcSourceUsda').classList.toggle('active', bcSearchSource === 'usda');
+  }
+
+  function openBarcodeModal(handlers){
+    bcHandlers = handlers;
+    bcLastProduct = null;
+    bcLastBarcode = null;
+    bcSearchSource = 'off';
+    document.getElementById('barcodeOverlay').style.display = 'flex';
+    document.getElementById('bcManualInput').value = '';
+    document.getElementById('bcSearchInput').value = '';
+    document.getElementById('bcSearchResults').innerHTML = '';
+    document.getElementById('bcSearchStatus').textContent = '';
+    bcSetStatus('Point the camera at a barcode, or type the number below.');
+    bcShowStep('scan');
+    startBarcodeCamera();
+  }
+
+  function closeBarcodeModal(){
+    stopBarcodeCamera();
+    document.getElementById('barcodeOverlay').style.display = 'none';
+    bcHandlers = null;
+    bcLastProduct = null;
+    bcLastBarcode = null;
+  }
+
+  function startBarcodeCamera(){
+    if(typeof Html5Qrcode === 'undefined'){
+      bcSetStatus('The camera scanner needs an internet connection to load the first time. You can still type the barcode number below.', true);
+      return;
+    }
+    if(bcActive) return;
+    const scanner = new Html5Qrcode('bcReader', {
+      formatsToSupport: [
+        Html5QrcodeSupportedFormats.EAN_13,
+        Html5QrcodeSupportedFormats.EAN_8,
+        Html5QrcodeSupportedFormats.UPC_A,
+        Html5QrcodeSupportedFormats.UPC_E,
+      ],
+      verbose: false,
+    });
+    bcInstance = scanner;
+    bcActive = true;
+    scanner.start(
+      { facingMode: 'environment' },
+      { fps: 10, qrbox: { width: 260, height: 160 } },
+      function(decodedText){
+        stopBarcodeCamera();
+        handleScannedBarcode(decodedText);
+      },
+      function(){ /* per-frame decode misses are normal while aiming */ }
+    ).catch(function(){
+      bcActive = false;
+      bcSetStatus('Couldn’t access the camera — check camera permissions, or type the barcode number below.', true);
+    });
+  }
+
+  function stopBarcodeCamera(){
+    if(bcInstance && bcActive){
+      const inst = bcInstance;
+      inst.stop().then(function(){ inst.clear(); }).catch(function(){});
+    }
+    bcActive = false;
+    bcInstance = null;
+  }
+
+  // Open Food Facts' servers occasionally answer a valid request with a
+  // transient 503 under load; one silent retry avoids surfacing that as a
+  // user-facing failure.
+  async function fetchWithRetry(url, attempts){
+    let lastErr;
+    for(let i = 0; i < attempts; i++){
+      try {
+        const res = await fetch(url);
+        if(res.ok) return res;
+        lastErr = new Error('http ' + res.status);
+      } catch(e){
+        lastErr = e;
+      }
+      if(i < attempts - 1) await new Promise(function(r){ setTimeout(r, 600); });
+    }
+    throw lastErr;
+  }
+
+  async function lookupBarcodeProduct(barcode){
+    const url = 'https://world.openfoodfacts.org/api/v2/product/' + encodeURIComponent(barcode) + '.json?fields=product_name,brands,nutriments,serving_size';
+    const res = await fetchWithRetry(url, 2);
+    const data = await res.json();
+    if(data.status !== 1) return null;
+    const n = data.product.nutriments || {};
+    return {
+      source: 'off',
+      barcode: barcode,
+      name: data.product.product_name || 'Unnamed product',
+      brand: data.product.brands || '',
+      servingSize: data.product.serving_size || '',
+      per100g: {
+        cal: n['energy-kcal_100g'] != null ? n['energy-kcal_100g'] : null,
+        prot: n['proteins_100g'] != null ? n['proteins_100g'] : null,
+        carb: n['carbohydrates_100g'] != null ? n['carbohydrates_100g'] : null,
+        fat: n['fat_100g'] != null ? n['fat_100g'] : null,
+      },
+      perServing: {
+        cal: n['energy-kcal_serving'] != null ? n['energy-kcal_serving'] : null,
+        prot: n['proteins_serving'] != null ? n['proteins_serving'] : null,
+        carb: n['carbohydrates_serving'] != null ? n['carbohydrates_serving'] : null,
+        fat: n['fat_serving'] != null ? n['fat_serving'] : null,
+      },
+    };
+  }
+
+  // USDA FoodData Central — optional, needs the viewer's own free key (see
+  // Settings). Its branded-food search reports nutrients per 100g only (no
+  // per-serving breakdown), so perServing is left empty here; the serving
+  // size on the label is still shown as a reference note.
+  function usdaFoodToProduct(f){
+    const nutMap = {};
+    (f.foodNutrients || []).forEach(function(n){ nutMap[n.nutrientName] = n.value; });
+    return {
+      source: 'usda',
+      barcode: f.gtinUpc || '',
+      name: f.description ? f.description[0] + f.description.slice(1).toLowerCase() : 'Unnamed product',
+      brand: f.brandOwner || f.brandName || '',
+      servingSize: f.householdServingFullText || (f.servingSize ? (f.servingSize + ' ' + (f.servingSizeUnit || '')) : ''),
+      per100g: {
+        cal: nutMap['Energy'] != null ? nutMap['Energy'] : null,
+        prot: nutMap['Protein'] != null ? nutMap['Protein'] : null,
+        carb: nutMap['Carbohydrate, by difference'] != null ? nutMap['Carbohydrate, by difference'] : null,
+        fat: nutMap['Total lipid (fat)'] != null ? nutMap['Total lipid (fat)'] : null,
+      },
+      perServing: { cal: null, prot: null, carb: null, fat: null },
+    };
+  }
+
+  function normalizeBarcodeDigits(s){ return (s || '').replace(/^0+/, ''); }
+
+  async function lookupUsdaProductByBarcode(barcode){
+    const key = getUsdaKey();
+    if(!key) return null;
+    const url = 'https://api.nal.usda.gov/fdc/v1/foods/search?api_key=' + encodeURIComponent(key) + '&query=' + encodeURIComponent(barcode) + '&dataType=Branded&pageSize=5';
+    const res = await fetchWithRetry(url, 2);
+    const data = await res.json();
+    const foods = data.foods || [];
+    const target = normalizeBarcodeDigits(barcode);
+    const exact = foods.find(function(f){ return normalizeBarcodeDigits(f.gtinUpc) === target; });
+    const pick = exact || foods[0];
+    return pick ? usdaFoodToProduct(pick) : null;
+  }
+
+  async function searchUsdaProductsByName(query){
+    const key = getUsdaKey();
+    if(!key) return [];
+    const url = 'https://api.nal.usda.gov/fdc/v1/foods/search?api_key=' + encodeURIComponent(key) + '&query=' + encodeURIComponent(query) + '&dataType=Branded&pageSize=8';
+    const res = await fetchWithRetry(url, 2);
+    const data = await res.json();
+    return (data.foods || []).map(usdaFoodToProduct);
+  }
+
+  async function searchBarcodeProductsByName(query){
+    const url = 'https://world.openfoodfacts.org/cgi/search.pl?search_terms=' + encodeURIComponent(query) + '&search_simple=1&action=process&json=1&page_size=8&fields=code,product_name,brands,nutriments,serving_size';
+    const res = await fetchWithRetry(url, 3);
+    const data = await res.json();
+    return (data.products || []).map(function(p){
+      const n = p.nutriments || {};
+      return {
+        barcode: p.code || '',
+        name: p.product_name || '',
+        brand: p.brands || '',
+        servingSize: p.serving_size || '',
+        per100g: {
+          cal: n['energy-kcal_100g'] != null ? n['energy-kcal_100g'] : null,
+          prot: n['proteins_100g'] != null ? n['proteins_100g'] : null,
+          carb: n['carbohydrates_100g'] != null ? n['carbohydrates_100g'] : null,
+          fat: n['fat_100g'] != null ? n['fat_100g'] : null,
+        },
+        perServing: {
+          cal: n['energy-kcal_serving'] != null ? n['energy-kcal_serving'] : null,
+          prot: n['proteins_serving'] != null ? n['proteins_serving'] : null,
+          carb: n['carbohydrates_serving'] != null ? n['carbohydrates_serving'] : null,
+          fat: n['fat_serving'] != null ? n['fat_serving'] : null,
+        },
+      };
+    }).filter(function(p){ return p.name; });
+  }
+
+  function bcMacroSummary(product){
+    const parts = [];
+    if(product.per100g.cal != null){
+      parts.push(Math.round(product.per100g.cal) + ' kcal/100g · P' + Math.round(product.per100g.prot||0) + ' C' + Math.round(product.per100g.carb||0) + ' F' + Math.round(product.per100g.fat||0));
+    }
+    if(product.perServing.cal != null){
+      parts.push(Math.round(product.perServing.cal) + ' kcal/serving' + (product.servingSize ? ' (' + product.servingSize + ')' : ''));
+    }
+    return parts.length ? parts.join(' — ') : 'No macro data available for this item.';
+  }
+
+  function showBarcodeReview(product){
+    bcLastProduct = product;
+    stopBarcodeCamera();
+    const sourceLabel = product.source === 'usda' ? ' — USDA' : ' — Open Food Facts';
+    document.getElementById('bcReviewName').textContent = product.name + (product.brand ? ' (' + product.brand + ')' : '') + sourceLabel;
+    document.getElementById('bcReviewMacros').textContent = bcMacroSummary(product);
+    document.getElementById('bcReviewStatus').textContent = '';
+    document.getElementById('bcReviewStatus').classList.remove('warn');
+    const otherBtn = document.getElementById('bcTryOtherBtn');
+    if(hasUsdaKey() && bcLastBarcode){
+      otherBtn.style.display = 'block';
+      otherBtn.textContent = product.source === 'usda' ? 'Try Open Food Facts instead' : 'Try USDA instead';
+    } else {
+      otherBtn.style.display = 'none';
+    }
+    bcShowStep('review');
+  }
+
+  async function handleScannedBarcode(barcode){
+    bcLastBarcode = barcode;
+    bcSetStatus('Looking up ' + barcode + '…');
+    try {
+      const product = await lookupBarcodeProduct(barcode);
+      if(product){ showBarcodeReview(product); return; }
+      if(hasUsdaKey()){
+        bcSetStatus('Not in Open Food Facts — checking USDA…');
+        const usdaProduct = await lookupUsdaProductByBarcode(barcode);
+        if(usdaProduct){ showBarcodeReview(usdaProduct); return; }
+      }
+      bcSetStatus('Barcode ' + barcode + ' isn’t in Open Food Facts' + (hasUsdaKey() ? ' or USDA' : '') + ' yet. Try searching by name below, or enter it manually.', true);
+    } catch(e){
+      bcSetStatus('Lookup failed — check your connection and try again.', true);
+    }
+  }
+
+  document.getElementById('bcCancelBtn').addEventListener('click', closeBarcodeModal);
+  document.getElementById('bcManualForm').addEventListener('submit', function(e){
+    e.preventDefault();
+    const val = document.getElementById('bcManualInput').value.trim();
+    if(!val) return;
+    handleScannedBarcode(val);
+  });
+
+  document.getElementById('bcUseBtn').addEventListener('click', function(){
+    const product = bcLastProduct;
+    const handlers = bcHandlers;
+    closeBarcodeModal();
+    if(handlers && handlers.onUse) handlers.onUse(product);
+  });
+
+  document.getElementById('bcNotRightBtn').addEventListener('click', function(){
+    bcSearchSource = 'off';
+    bcUpdateSearchSourceUI();
+    bcShowStep('search');
+    document.getElementById('bcSearchInput').focus();
+  });
+
+  document.getElementById('bcTryOtherBtn').addEventListener('click', async function(){
+    if(!bcLastBarcode || !bcLastProduct) return;
+    const wantUsda = bcLastProduct.source !== 'usda';
+    const statusEl = document.getElementById('bcReviewStatus');
+    statusEl.classList.remove('warn');
+    statusEl.textContent = wantUsda ? 'Checking USDA…' : 'Checking Open Food Facts…';
+    try {
+      const product = wantUsda ? await lookupUsdaProductByBarcode(bcLastBarcode) : await lookupBarcodeProduct(bcLastBarcode);
+      if(!product){
+        statusEl.textContent = (wantUsda ? 'USDA' : 'Open Food Facts') + ' doesn’t have this item either.';
+        statusEl.classList.add('warn');
+        return;
+      }
+      showBarcodeReview(product);
+    } catch(e){
+      statusEl.textContent = 'Lookup failed — check your connection and try again.';
+      statusEl.classList.add('warn');
+    }
+  });
+
+  document.getElementById('bcSourceOff').addEventListener('click', function(){ bcSearchSource = 'off'; bcUpdateSearchSourceUI(); });
+  document.getElementById('bcSourceUsda').addEventListener('click', function(){ bcSearchSource = 'usda'; bcUpdateSearchSourceUI(); });
+
+  document.getElementById('bcManualFallbackBtn').addEventListener('click', function(){
+    const handlers = bcHandlers;
+    closeBarcodeModal();
+    if(handlers && handlers.onManual) handlers.onManual();
+  });
+
+  document.getElementById('bcBackToScanBtn').addEventListener('click', function(){
+    bcSetStatus('Point the camera at a barcode, or type the number below.');
+    bcShowStep('scan');
+    startBarcodeCamera();
+  });
+
+  document.getElementById('bcSearchForm').addEventListener('submit', async function(e){
+    e.preventDefault();
+    const q = document.getElementById('bcSearchInput').value.trim();
+    if(!q) return;
+    const statusEl = document.getElementById('bcSearchStatus');
+    const resultsBox = document.getElementById('bcSearchResults');
+    statusEl.textContent = 'Searching…';
+    resultsBox.innerHTML = '';
+    try {
+      const results = bcSearchSource === 'usda' ? await searchUsdaProductsByName(q) : await searchBarcodeProductsByName(q);
+      if(results.length === 0){
+        statusEl.textContent = 'No matches — try a different search, switch database above, or enter it manually.';
+        return;
+      }
+      statusEl.textContent = '';
+      results.forEach(function(p){
+        const row = document.createElement('div');
+        row.className = 'lib-item';
+        row.style.cursor = 'pointer';
+        row.innerHTML = '<div style="min-width:0;"><div class="li-name"></div><div class="li-meta"></div></div>';
+        row.querySelector('.li-name').textContent = p.name + (p.brand ? ' (' + p.brand + ')' : '');
+        row.querySelector('.li-meta').textContent = bcMacroSummary(p);
+        row.addEventListener('click', function(){ showBarcodeReview(p); });
+        resultsBox.appendChild(row);
+      });
+    } catch(e){
+      statusEl.textContent = 'Search failed — check your connection and try again.';
+    }
+  });
+
+  // ---------- scan a barcode to log food with imported macros ----------
+  let scannedProduct = null;
+
+  function macroBase(product, useServing){
+    return (useServing && product.perServing.cal != null) ? product.perServing : product.per100g;
+  }
+
+  function updateScanMacroPreview(){
+    const p = scannedProduct;
+    if(!p) return;
+    const useServing = document.getElementById('scanUseServing').checked;
+    document.getElementById('scanQtyLabel').textContent = 'Quantity (' + (useServing ? 'servings' : 'x100g') + ')';
+    const mult = parseFloat(document.getElementById('scanMultiplier').value) || 0;
+    const base = macroBase(p, useServing);
+    const cal = Math.round((base.cal||0) * mult);
+    const prot = Math.round((base.prot||0) * mult);
+    const carb = Math.round((base.carb||0) * mult);
+    const fat = Math.round((base.fat||0) * mult);
+    document.getElementById('scanMacroPreview').textContent = cal + ' kcal · P' + prot + ' C' + carb + ' F' + fat;
+  }
+
+  function renderScanFoodPreview(){
+    const p = scannedProduct;
+    document.getElementById('scanFoodName').textContent = p.name + (p.brand ? ' (' + p.brand + ')' : '');
+    const hasServing = p.perServing.cal != null;
+    document.getElementById('scanServingRow').style.display = hasServing ? 'flex' : 'none';
+    document.getElementById('scanServingLabel').textContent = 'Use per-serving values' + (p.servingSize ? ' (' + p.servingSize + ')' : '') + ' instead of per 100g';
+    document.getElementById('scanUseServing').checked = hasServing;
+    document.getElementById('scanMultiplier').value = '1';
+    updateScanMacroPreview();
+    document.getElementById('scanFoodPreview').style.display = 'block';
+  }
+
+  document.getElementById('scanFoodBarcodeBtn').addEventListener('click', function(){
+    openBarcodeModal({
+      onUse: function(product){
+        scannedProduct = product;
+        renderScanFoodPreview();
+      },
+      onManual: function(){
+        document.getElementById('fName').focus();
+      }
+    });
+  });
+  document.getElementById('scanUseServing').addEventListener('change', updateScanMacroPreview);
+  document.getElementById('scanMultiplier').addEventListener('input', updateScanMacroPreview);
+  document.getElementById('useScannedBtn').addEventListener('click', function(){
+    const p = scannedProduct;
+    if(!p) return;
+    const useServing = document.getElementById('scanUseServing').checked;
+    const mult = parseFloat(document.getElementById('scanMultiplier').value) || 0;
+    const base = macroBase(p, useServing);
+    document.getElementById('fName').value = p.name + (p.brand ? ' (' + p.brand + ')' : '');
+    document.getElementById('fCal').value = Math.round((base.cal||0) * mult);
+    document.getElementById('fProt').value = Math.round((base.prot||0) * mult);
+    document.getElementById('fCarb').value = Math.round((base.carb||0) * mult);
+    document.getElementById('fFat').value = Math.round((base.fat||0) * mult);
+    document.getElementById('scanFoodPreview').style.display = 'none';
+  });
+
   document.getElementById('saveFoodBtn').addEventListener('click', function(){
     const name = document.getElementById('fName').value.trim();
     const cal = parseFloat(document.getElementById('fCal').value) || 0;
@@ -1032,8 +1556,17 @@
       showConfirm('Couldn\u2019t save that food — your browser storage may be full. Try deleting some old progress photos to free up space, then try again.', function(){});
       return;
     }
+    const consumedNames = pantryItemsConsumedByRecipe(recipe);
+    if(consumedNames.length){
+      const remaining = getPantry().filter(function(p){ return consumedNames.indexOf(p.name.toLowerCase()) === -1; });
+      setPantry(remaining);
+      renderPantry();
+    }
     renderToday();
     switchView('today');
+    if(consumedNames.length){
+      showAlert('Logged ' + recipe.name + '. Used up from your pantry: ' + consumedNames.join(', ') + '. Add more when you restock.');
+    }
   }
 
   // ---------- food database (local, offline — see settings note for why) ----------
@@ -1138,7 +1671,13 @@
   ];
 
   // ---------- pantry ----------
-  function getPantry(){ return safeGet('il_pantry', []); }
+  // Pantry items were originally plain strings; they're now objects
+  // ({ name, barcode?, per100g?, perServing?, servingSize? }) so scanned
+  // items can carry macro data. Old string entries are migrated on read.
+  function getPantry(){
+    const raw = safeGet('il_pantry', []);
+    return raw.map(item => typeof item === 'string' ? { name: item } : item);
+  }
   function setPantry(items){ safeSet('il_pantry', items); }
 
   function normWord(w){ return w.trim().toLowerCase(); }
@@ -1157,10 +1696,46 @@
     const pantry = getPantry();
     const missing = [];
     recipe.ingredients.forEach(ing => {
-      const have = pantry.some(p => ingredientHasPantryItem(ing, p));
+      const have = pantry.some(p => ingredientHasPantryItem(ing, p.name));
       if(!have) missing.push(ing);
     });
     return { total: recipe.ingredients.length, haveCount: recipe.ingredients.length - missing.length, missing };
+  }
+
+  // Ingredients logged as a whole unit (a can, a fillet, a breast, an egg...)
+  // are treated as used up when a recipe is logged. Small measured amounts
+  // (a tbsp of oil, a pinch of a spice) come from a staple that isn't used
+  // up by one recipe, so those pantry items are left alone. Spices are never
+  // auto-removed regardless of how the recipe phrases the quantity.
+  const SPICE_WORDS = ['salt','pepper','cumin','paprika','oregano','basil','thyme','cinnamon','nutmeg','cayenne',
+    'chili powder','garlic powder','onion powder','italian herbs','seasoning','fajita seasoning','curry powder',
+    'turmeric','cornstarch','herbs','spice','spices'];
+  const PROTEIN_WORDS = ['chicken','turkey','beef','salmon','shrimp','tuna','cod','halibut','pork','egg','eggs'];
+  const WHOLE_SIGNAL_RE = /\b(can|cans|jar|jars|fillet|fillets|breast|breasts|thigh|thighs|drumstick|drumsticks|package|packages|pkg|bag|bags|slice|slices|stick|sticks|scoop|scoops|egg|eggs|banana|zucchini|potato)\b/i;
+  const SMALL_MEASURE_RE = /\b(tbsp|tablespoon|tablespoons|tsp|teaspoon|teaspoons|cup|cups|pinch|dash|drizzle|splash|clove|cloves)\b/i;
+
+  function isSpicePantryItem(name){
+    const n = name.toLowerCase();
+    return SPICE_WORDS.some(w => n.includes(w));
+  }
+  function ingredientImpliesWholeUse(ingredientText, pantryName){
+    if(WHOLE_SIGNAL_RE.test(ingredientText)) return true;
+    if(SMALL_MEASURE_RE.test(ingredientText)) return false;
+    const p = pantryName.toLowerCase();
+    const text = ingredientText.toLowerCase();
+    return PROTEIN_WORDS.some(w => p.includes(w) || text.includes(w));
+  }
+  function pantryItemsConsumedByRecipe(recipe){
+    const pantry = getPantry();
+    const toRemove = new Set();
+    recipe.ingredients.forEach(ing => {
+      pantry.forEach(p => {
+        if(!ingredientHasPantryItem(ing, p.name)) return;
+        if(isSpicePantryItem(p.name)) return;
+        if(ingredientImpliesWholeUse(ing, p.name)) toRemove.add(p.name.toLowerCase());
+      });
+    });
+    return Array.from(toRemove);
   }
 
   function renderPantry(){
@@ -1175,7 +1750,7 @@
       const chip = document.createElement('div');
       chip.className = 'pantry-chip';
       chip.innerHTML = '<span></span><button aria-label="Remove">×</button>';
-      chip.querySelector('span').textContent = item;
+      chip.querySelector('span').textContent = item.name;
       chip.querySelector('button').addEventListener('click', () => {
         const all = getPantry();
         all.splice(idx, 1);
@@ -1195,13 +1770,47 @@
     if(!val) return;
     const items = getPantry();
     val.split(',').map(v => v.trim()).filter(Boolean).forEach(v => {
-      if(!items.some(x => x.toLowerCase() === v.toLowerCase())) items.push(v);
+      if(!items.some(x => x.name.toLowerCase() === v.toLowerCase())) items.push({ name: v });
     });
     setPantry(items);
     input.value = '';
     renderPantry();
     renderRecipes();
   }
+
+  function addPantryProduct(product){
+    const items = getPantry();
+    const displayName = product.name + (product.brand ? ' (' + product.brand + ')' : '');
+    const exists = items.some(x => (product.barcode && x.barcode === product.barcode) || x.name.toLowerCase() === displayName.toLowerCase());
+    if(!exists){
+      items.push({ name: displayName, barcode: product.barcode, per100g: product.per100g, perServing: product.perServing, servingSize: product.servingSize });
+      setPantry(items);
+      renderPantry();
+      renderRecipes();
+    }
+    return !exists;
+  }
+
+  document.getElementById('pantryScanBtn').addEventListener('click', function(){
+    openBarcodeModal({
+      onUse: function(product){
+        const added = addPantryProduct(product);
+        showAlert(added ? ('Added "' + product.name + '" to your pantry.') : ('"' + product.name + '" is already in your pantry.'));
+      },
+      onManual: function(){
+        document.getElementById('pantryInput').focus();
+      }
+    });
+  });
+
+  document.getElementById('clearPantryBtn').addEventListener('click', function(){
+    if(getPantry().length === 0) return;
+    showConfirm('Clear your entire pantry list?', function(){
+      setPantry([]);
+      renderPantry();
+      renderRecipes();
+    });
+  });
 
   // ---------- shopping list & budget ----------
   const PRICE_MAP = [
@@ -1265,10 +1874,23 @@
       items.forEach((item, idx) => {
         const row = document.createElement('div');
         row.className = 'shop-item';
-        row.innerHTML = '<div style="flex:1;"><div class="si-name"></div><div class="si-src"></div></div><div class="si-price"></div><button class="del" aria-label="Remove">×</button>';
+        row.innerHTML = '<div style="flex:1;"><div class="si-name"></div><div class="si-src"></div></div><div class="si-price"></div><button class="si-buy" aria-label="Mark bought" title="Mark bought — moves it into your pantry">✓</button><button class="del" aria-label="Remove">×</button>';
         row.querySelector('.si-name').textContent = item.name;
-        row.querySelector('.si-src').textContent = 'for ' + item.source;
+        row.querySelector('.si-src').textContent = item.source ? ('for ' + item.source) : '';
         row.querySelector('.si-price').textContent = '$' + item.price.toFixed(2);
+        row.querySelector('.si-buy').addEventListener('click', () => {
+          const all = getShopList();
+          all.splice(idx, 1);
+          setShopList(all);
+          const pantryItems = getPantry();
+          if(!pantryItems.some(p => p.name.toLowerCase() === item.name.toLowerCase())){
+            pantryItems.push({ name: item.name });
+            setPantry(pantryItems);
+          }
+          renderShopList();
+          renderPantry();
+          renderRecipes();
+        });
         row.querySelector('.del').addEventListener('click', () => {
           const all = getShopList();
           all.splice(idx, 1);
@@ -1342,6 +1964,39 @@
       renderShopList();
     });
   });
+
+  document.getElementById('shopScanBtn').addEventListener('click', function(){
+    openBarcodeModal({
+      onUse: function(product){
+        const list = getShopList();
+        const displayName = product.name + (product.brand ? ' (' + product.brand + ')' : '');
+        if(!list.some(i => i.name.toLowerCase() === displayName.toLowerCase())){
+          list.push({ name: displayName, price: estimatePrice(displayName), source: 'Scanned' });
+          setShopList(list);
+          renderShopList();
+        }
+      },
+      onManual: function(){
+        document.getElementById('shopManualName').focus();
+      }
+    });
+  });
+
+  function addManualShopItem(){
+    const nameInput = document.getElementById('shopManualName');
+    const priceInput = document.getElementById('shopManualPrice');
+    const name = nameInput.value.trim();
+    if(!name) return;
+    const typedPrice = parseFloat(priceInput.value);
+    const list = getShopList();
+    list.push({ name: name, price: isNaN(typedPrice) ? estimatePrice(name) : typedPrice, source: '' });
+    setShopList(list);
+    nameInput.value = '';
+    priceInput.value = '';
+    renderShopList();
+  }
+  document.getElementById('shopManualAddBtn').addEventListener('click', addManualShopItem);
+  document.getElementById('shopManualName').addEventListener('keydown', function(e){ if(e.key === 'Enter'){ e.preventDefault(); addManualShopItem(); } });
 
   function renderDbResults(query){
     const box = document.getElementById('dbResults');
@@ -2421,26 +3076,46 @@
     } catch(e){ return false; }
   }
 
-  function resizeImageFile(file, maxDim, quality){
-    return new Promise((resolve, reject) => {
+  // Stores a compressed Blob instead of a base64 data URL — base64 inflates
+  // size by about a third for no benefit, and IndexedDB stores Blobs
+  // natively. WebP is tried first (smaller than JPEG at equal quality);
+  // canvas.toBlob() silently falls back to PNG on browsers that can't
+  // encode WebP, so the result's actual type is checked before trusting it.
+  function canvasToBlob(canvas, type, quality){
+    return new Promise((resolve) => canvas.toBlob(resolve, type, quality));
+  }
+
+  async function resizeImageFile(file, maxDim, quality){
+    const dataUrl = await new Promise((resolve, reject) => {
       const reader = new FileReader();
-      reader.onload = function(e){
-        const img = new Image();
-        img.onload = function(){
-          let width = img.width, height = img.height;
-          if(width >= height && width > maxDim){ height = Math.round(height * (maxDim / width)); width = maxDim; }
-          else if(height > maxDim){ width = Math.round(width * (maxDim / height)); height = maxDim; }
-          const canvas = document.createElement('canvas');
-          canvas.width = width; canvas.height = height;
-          canvas.getContext('2d').drawImage(img, 0, 0, width, height);
-          resolve(canvas.toDataURL('image/jpeg', quality));
-        };
-        img.onerror = () => reject(new Error('Could not read that image.'));
-        img.src = e.target.result;
-      };
+      reader.onload = (e) => resolve(e.target.result);
       reader.onerror = () => reject(new Error('Could not read that file.'));
       reader.readAsDataURL(file);
     });
+    const img = await new Promise((resolve, reject) => {
+      const image = new Image();
+      image.onload = () => resolve(image);
+      image.onerror = () => reject(new Error('Could not read that image.'));
+      image.src = dataUrl;
+    });
+    let width = img.width, height = img.height;
+    if(width >= height && width > maxDim){ height = Math.round(height * (maxDim / width)); width = maxDim; }
+    else if(height > maxDim){ width = Math.round(width * (maxDim / height)); height = maxDim; }
+    const canvas = document.createElement('canvas');
+    canvas.width = width; canvas.height = height;
+    canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+
+    const webpBlob = await canvasToBlob(canvas, 'image/webp', quality);
+    if(webpBlob && webpBlob.type === 'image/webp') return webpBlob;
+    return canvasToBlob(canvas, 'image/jpeg', quality);
+  }
+
+  // Photos may be a Blob (current format) or a legacy base64 data URL
+  // string (saved before this change) — both are valid <img src> sources
+  // once a Blob is turned into an object URL.
+  function photoSrc(value){
+    if(!value) return '';
+    return value instanceof Blob ? URL.createObjectURL(value) : value;
   }
 
   document.getElementById('pDate').value = todayStr();
@@ -2455,7 +3130,7 @@
       const slot = document.createElement('div');
       slot.className = 'photo-slot';
       if(dayPhotos[a.key]){
-        slot.innerHTML = '<span class="ps-label">' + a.label + '</span><img src="' + dayPhotos[a.key] + '"><button class="ps-del" title="Remove">×</button>';
+        slot.innerHTML = '<span class="ps-label">' + a.label + '</span><img src="' + photoSrc(dayPhotos[a.key]) + '"><button class="ps-del" title="Remove">×</button>';
         slot.querySelector('img').addEventListener('click', (ev) => { ev.stopPropagation(); openLightbox(dayPhotos[a.key]); });
         slot.querySelector('.ps-del').addEventListener('click', async (ev) => {
           ev.stopPropagation();
@@ -2494,7 +3169,8 @@
     });
   });
 
-  function openLightbox(src){
+  function openLightbox(value){
+    const src = photoSrc(value);
     const overlay = document.createElement('div');
     overlay.className = 'lightbox-overlay';
     overlay.innerHTML = '<button class="lightbox-close">×</button><img src="' + src + '">';
@@ -2523,7 +3199,7 @@
         const shot = document.createElement('div');
         if(day[a.key]){
           shot.className = 'gd-shot';
-          shot.innerHTML = '<span class="ps-label">' + a.label + '</span><img src="' + day[a.key] + '">';
+          shot.innerHTML = '<span class="ps-label">' + a.label + '</span><img src="' + photoSrc(day[a.key]) + '">';
           shot.addEventListener('click', () => openLightbox(day[a.key]));
         } else {
           shot.className = 'gd-shot empty';
@@ -2588,7 +3264,7 @@
       col.querySelector('.cc-label').textContent = date || '—';
       const imgBox = col.querySelector('.cc-img');
       if(img){
-        imgBox.innerHTML = '<img src="'+img+'">';
+        imgBox.innerHTML = '<img src="'+photoSrc(img)+'">';
         imgBox.style.cursor = 'pointer';
         imgBox.addEventListener('click', () => openLightbox(img));
       } else {
@@ -2613,6 +3289,11 @@
   });
 
   // ---------- init ----------
+  // Best-effort: ask the browser not to evict this app's data under storage
+  // pressure. Silently ignored where unsupported; no UI needed either way.
+  if(navigator.storage && navigator.storage.persist){
+    navigator.storage.persist().catch(function(){});
+  }
   applyTargetsToForm();
   renderToday();
   renderFilters();

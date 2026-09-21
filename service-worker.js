@@ -1,7 +1,10 @@
-const CACHE_NAME = 'iron-ledger-v1';
-const APP_SHELL = [
-  './',
-  './index.html',
+const CACHE_VERSION = 'v2';
+const CACHE_NAME = 'iron-ledger-' + CACHE_VERSION;
+
+// Only static assets that rarely change — the app's own HTML/JS is fetched
+// network-first below so a new deploy is picked up right away instead of
+// being stuck behind whatever got cached at install time.
+const STATIC_SHELL = [
   './manifest.json',
   './icons/icon-192.png',
   './icons/icon-512.png',
@@ -11,7 +14,7 @@ const APP_SHELL = [
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME)
-      .then((cache) => cache.addAll(APP_SHELL))
+      .then((cache) => cache.addAll(STATIC_SHELL))
       .catch(() => {}) // don't block install if one asset fails to pre-cache
   );
   self.skipWaiting();
@@ -26,20 +29,42 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Cache-first for the app shell, with opportunistic caching of anything
-// else same-origin. Cross-origin requests (Google Fonts) just pass through
-// to the network and fail quietly offline — the app's fonts fall back to
-// system sans-serif, nothing breaks.
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
 
+  const url = new URL(event.request.url);
+  const isAppDocument = event.request.mode === 'navigate'
+    || url.pathname.endsWith('/index.html')
+    || url.pathname.endsWith('/service-worker.js');
+
+  if (isAppDocument) {
+    // Network-first: always try to get the latest version when online, and
+    // keep the cache updated as a fallback for offline use.
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          if (response && response.ok) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+          }
+          return response;
+        })
+        .catch(() => caches.match(event.request))
+    );
+    return;
+  }
+
+  // Cache-first for everything else (icons, fonts, etc.), with opportunistic
+  // caching of same-origin responses. Cross-origin requests (Google Fonts,
+  // Open Food Facts, USDA) just pass through to the network and fail
+  // quietly offline.
   event.respondWith(
     caches.match(event.request).then((cached) => {
       if (cached) return cached;
 
       return fetch(event.request)
         .then((response) => {
-          if (response && response.ok && event.request.url.startsWith(self.location.origin)) {
+          if (response && response.ok && url.origin === self.location.origin) {
             const clone = response.clone();
             caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
           }
