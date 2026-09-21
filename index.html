@@ -415,8 +415,12 @@
   .modal-actions .btn { flex: 1; }
 
   /* Barcode scanner */
-  .bc-reader { position: relative; width: 100%; min-height: 200px; background: var(--panel-2); border-radius: var(--radius-s); overflow: hidden; }
-  .bc-reader video, .bc-reader canvas { width: 100%; }
+  /* Quagga sets its own inline width/height on the video/canvas it injects,
+     sized to the raw camera stream — on some cameras/orientations that's
+     tall enough to blow out the modal. Pin both to fill a fixed-ratio box
+     instead of trusting their native size. */
+  .bc-reader { position: relative; width: 100%; aspect-ratio: 4 / 3; max-height: 340px; background: var(--panel-2); border-radius: var(--radius-s); overflow: hidden; }
+  .bc-reader video, .bc-reader canvas { position: absolute !important; top: 0; left: 0; width: 100% !important; height: 100% !important; object-fit: cover; }
   .bc-status { font-size: 12.5px; color: var(--text-dim); margin-top: 10px; line-height: 1.5; }
   .bc-status.warn { color: var(--rust); }
   .bc-debug { font-family: monospace; font-size: 10px; color: var(--text-dim); background: var(--panel-2); border-radius: var(--radius-s); margin-top: 8px; padding: 6px; max-height: 140px; overflow-y: auto; white-space: pre-wrap; word-break: break-all; }
@@ -487,8 +491,8 @@
       <button class="btn ghost small" id="scanFoodBarcodeBtn" type="button" style="width:100%;">📷 Scan barcode</button>
       <div class="add-food-card" id="scanFoodPreview" style="display:none; margin:10px 0 0; padding:12px;">
         <div class="db-result-name" id="scanFoodName"></div>
-        <label id="scanServingRow" style="display:flex; align-items:center; gap:6px; font-size:12.5px; color:var(--text-dim); margin:8px 0;">
-          <input type="checkbox" id="scanUseServing" checked><span id="scanServingLabel">Use per-serving values</span>
+        <label id="scanServingRow" style="display:flex; align-items:center; flex-wrap:wrap; gap:6px; font-size:12.5px; color:var(--text-dim); margin:8px 0;">
+          <input type="checkbox" id="scanUseServing" checked style="flex:0 0 auto;"><span id="scanServingLabel" style="flex:1 1 auto; min-width:0;">Use per-serving values</span>
         </label>
         <div class="field-row">
           <div class="field"><label class="f" id="scanQtyLabel">Quantity</label><input type="text" inputmode="decimal" id="scanMultiplier" value="1"></div>
