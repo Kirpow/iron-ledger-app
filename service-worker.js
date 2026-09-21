@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'v2';
+const CACHE_VERSION = 'v3';
 const CACHE_NAME = 'iron-ledger-' + CACHE_VERSION;
 
 // Only static assets that rarely change — the app's own HTML/JS is fetched
@@ -39,9 +39,14 @@ self.addEventListener('fetch', (event) => {
 
   if (isAppDocument) {
     // Network-first: always try to get the latest version when online, and
-    // keep the cache updated as a fallback for offline use.
+    // keep the cache updated as a fallback for offline use. GitHub Pages
+    // sends Cache-Control: max-age=600 on these files, which a plain
+    // fetch() would honor and silently serve from the browser's HTTP
+    // cache instead of actually hitting the network — defeating the
+    // point of "network-first" for up to 10 minutes after every deploy.
+    // cache: 'no-store' forces a real network round-trip every time.
     event.respondWith(
-      fetch(event.request)
+      fetch(event.request, { cache: 'no-store' })
         .then((response) => {
           if (response && response.ok) {
             const clone = response.clone();
