@@ -101,10 +101,12 @@
   .top-row { display: flex; align-items: baseline; justify-content: space-between; }
   .brand { font-family: 'Oswald', sans-serif; font-weight: 700; font-size: 22px; display: flex; align-items: center; gap: 8px; }
   .brand .mark { width: 10px; height: 22px; background: var(--brass); display: inline-block; border-radius: 1px; }
-  .date-nav { display: flex; align-items: center; gap: 10px; color: var(--text-dim); font-size: 14px; }
+  .date-nav { position: relative; display: flex; align-items: center; gap: 10px; color: var(--text-dim); font-size: 14px; }
   .date-nav button { background: none; border: 1px solid var(--border); color: var(--text-dim); width: 28px; height: 28px; border-radius: var(--radius-s); cursor: pointer; font-size: 15px; line-height: 1; }
   .date-nav button:hover { border-color: var(--text-dim); color: var(--text); }
-  .date-label { min-width: 92px; text-align: center; font-weight: 500; color: var(--text); }
+  .date-nav button.date-label { width: auto; height: auto; min-width: 92px; border: none; padding: 4px 6px; text-align: center; font-size: 14px; font-weight: 500; color: var(--text); font-family: inherit; }
+  .date-nav button.date-label:hover { border-color: transparent; background: var(--panel-2); }
+  .mini-cal-popup { position: absolute; top: 100%; right: 0; margin-top: 8px; z-index: 50; width: 260px; max-width: calc(100vw - 32px); background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius-m); padding: 12px; box-shadow: 0 8px 22px rgba(0,0,0,0.3); }
 
   main { padding-top: 18px; }
   .view { display: none; }
@@ -164,6 +166,10 @@
   .entry .del:hover { color: var(--rust); }
   .entry.workout-entry { border-left: 3px solid var(--rust); }
   .entry.workout-entry .cals { color: var(--rust); }
+  .meal-section { margin-bottom: 18px; }
+  .meal-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+  .meal-name { font-family: 'Oswald', sans-serif; font-size: 14px; letter-spacing: 0.3px; color: var(--text); }
+  .meal-sub { font-size: 11.5px; color: var(--text-faint); }
   .empty-note { color: var(--text-faint); font-size: 13.5px; padding: 18px 0; text-align: center; border: 1px dashed var(--border); border-radius: var(--radius-m); }
 
   /* Add food form */
@@ -435,8 +441,16 @@
       <div class="brand"><span class="mark"></span>Iron Ledger</div>
       <div class="date-nav" id="dateNavToday" style="display:none;">
         <button id="prevDay">‹</button>
-        <span class="date-label" id="dateLabel"></span>
+        <button class="date-label" id="dateLabel" type="button"></button>
         <button id="nextDay">›</button>
+        <div class="mini-cal-popup" id="miniCalPopup" style="display:none;">
+          <div class="cal-nav">
+            <button id="miniCalPrevMonth" type="button">‹</button>
+            <span id="miniCalMonthLabel">Month Year</span>
+            <button id="miniCalNextMonth" type="button">›</button>
+          </div>
+          <div class="cal-grid" id="miniCalGrid"></div>
+        </div>
       </div>
     </div>
   </div>
@@ -481,6 +495,16 @@
     </div>
 
     <div class="add-food-card" id="addFoodCard" style="display:none;">
+      <div class="field-row">
+        <div class="field"><label class="f">Meal</label>
+          <select id="fMeal">
+            <option value="breakfast">Breakfast</option>
+            <option value="lunch">Lunch</option>
+            <option value="dinner">Dinner</option>
+            <option value="snack">Snack</option>
+          </select>
+        </div>
+      </div>
       <div class="db-search-wrap">
         <label class="f">Search food database</label>
         <input type="text" id="dbSearch" placeholder="e.g. chicken, oats, almonds, banana" autocomplete="off">
@@ -810,6 +834,17 @@
   </div>
 </div>
 
+<div class="modal-overlay" id="foodDetailOverlay" style="display:none;">
+  <div class="modal-box">
+    <div class="db-result-name" id="fdName" style="font-size:15px; margin-bottom:4px;"></div>
+    <div class="db-result-macros" id="fdMacros" style="margin-bottom:10px;"></div>
+    <div id="fdExtra" style="font-size:12.5px; color:var(--text-dim); line-height:1.7;"></div>
+    <div class="modal-actions">
+      <button class="btn small" id="fdCloseBtn" style="flex:none; width:100%;">Close</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="barcodeOverlay" style="display:none;">
   <div class="modal-box" style="max-width:380px;">
     <div id="bcStepScan">
@@ -1039,6 +1074,133 @@
   document.getElementById('prevDay').addEventListener('click', () => shiftDate(-1));
   document.getElementById('nextDay').addEventListener('click', () => shiftDate(1));
 
+  // ---------- Today tab: mini calendar popup for jumping to any date ----------
+  let miniCalYear, miniCalMonth;
+  function openMiniCal(){
+    const [y,m] = currentDate.split('-').map(Number);
+    miniCalYear = y; miniCalMonth = m - 1;
+    renderMiniCal();
+    document.getElementById('miniCalPopup').style.display = 'block';
+  }
+  function closeMiniCal(){
+    document.getElementById('miniCalPopup').style.display = 'none';
+  }
+  function renderMiniCal(){
+    document.getElementById('miniCalMonthLabel').textContent =
+      new Date(miniCalYear, miniCalMonth, 1).toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+    const grid = document.getElementById('miniCalGrid');
+    grid.innerHTML = '';
+    ['S','M','T','W','T','F','S'].forEach(w => {
+      const el = document.createElement('div');
+      el.className = 'cal-wd';
+      el.textContent = w;
+      grid.appendChild(el);
+    });
+    const firstDayOffset = new Date(miniCalYear, miniCalMonth, 1).getDay();
+    const daysInMonth = new Date(miniCalYear, miniCalMonth + 1, 0).getDate();
+    const todayKey = todayStr();
+    for(let i = 0; i < firstDayOffset; i++){
+      const el = document.createElement('div');
+      el.className = 'cal-cell empty';
+      grid.appendChild(el);
+    }
+    for(let d = 1; d <= daysInMonth; d++){
+      const key = fmtDateKey(miniCalYear, miniCalMonth, d);
+      const cell = document.createElement('div');
+      let cls = 'cal-cell';
+      if(key === todayKey) cls += ' is-today';
+      if(key === currentDate) cls += ' is-selected';
+      cell.className = cls;
+      cell.innerHTML = '<span class="cal-daynum">' + d + '</span>';
+      cell.addEventListener('click', function(){
+        currentDate = key;
+        renderToday();
+        closeMiniCal();
+      });
+      grid.appendChild(cell);
+    }
+  }
+  document.getElementById('dateLabel').addEventListener('click', function(e){
+    e.stopPropagation();
+    const popup = document.getElementById('miniCalPopup');
+    if(popup.style.display === 'block') closeMiniCal(); else openMiniCal();
+  });
+  document.getElementById('miniCalPrevMonth').addEventListener('click', function(e){
+    e.stopPropagation();
+    miniCalMonth--;
+    if(miniCalMonth < 0){ miniCalMonth = 11; miniCalYear--; }
+    renderMiniCal();
+  });
+  document.getElementById('miniCalNextMonth').addEventListener('click', function(e){
+    e.stopPropagation();
+    miniCalMonth++;
+    if(miniCalMonth > 11){ miniCalMonth = 0; miniCalYear++; }
+    renderMiniCal();
+  });
+  document.addEventListener('click', function(e){
+    const popup = document.getElementById('miniCalPopup');
+    if(popup.style.display === 'block' && !popup.contains(e.target) && e.target.id !== 'dateLabel'){
+      closeMiniCal();
+    }
+  });
+
+  const MEALS = [
+    { key: 'breakfast', label: 'Breakfast' },
+    { key: 'lunch', label: 'Lunch' },
+    { key: 'dinner', label: 'Dinner' },
+    { key: 'snack', label: 'Snack' },
+  ];
+  // Entries saved before meal sections existed have no .meal — bucket
+  // those under Snack rather than dropping them from view.
+  function entryMealKey(e){
+    return MEALS.some(m => m.key === e.meal) ? e.meal : 'snack';
+  }
+
+  function fmtExtraLine(label, val, unit){
+    return val != null ? (label + ': ' + Math.round(val * 10) / 10 + unit) : null;
+  }
+
+  function openFoodDetail(e){
+    document.getElementById('fdName').textContent = e.name || 'Unnamed item';
+    document.getElementById('fdMacros').textContent =
+      Math.round(e.cal||0) + ' kcal · P ' + Math.round(e.prot||0) + 'g · C ' + Math.round(e.carb||0) + 'g · F ' + Math.round(e.fat||0) + 'g';
+    const extraEl = document.getElementById('fdExtra');
+    const x = e.extra;
+    const lines = x ? [
+      fmtExtraLine('Fiber', x.fiber, 'g'),
+      fmtExtraLine('Sugar', x.sugar, 'g'),
+      fmtExtraLine('Saturated fat', x.satFat, 'g'),
+      fmtExtraLine('Sodium', x.sodiumMg, 'mg'),
+    ].filter(Boolean) : [];
+    extraEl.innerHTML = lines.length
+      ? lines.map(l => '<div>' + l + '</div>').join('')
+      : '<div class="empty-note">No additional nutrition info for this item' + (x ? '' : ' — it was entered manually') + '.</div>';
+    document.getElementById('foodDetailOverlay').style.display = 'flex';
+  }
+  document.getElementById('fdCloseBtn').addEventListener('click', function(){
+    document.getElementById('foodDetailOverlay').style.display = 'none';
+  });
+
+  function buildFoodEntryRow(e, idx){
+    const row = document.createElement('div');
+    row.className = 'entry';
+    row.innerHTML = '<div class="info"><div class="name"></div><div class="macros"></div></div>' +
+      '<div class="cals"></div><button class="del" aria-label="Remove">×</button>';
+    row.querySelector('.name').textContent = e.name || 'Unnamed item';
+    row.querySelector('.macros').textContent = 'P ' + Math.round(e.prot||0) + 'g · C ' + Math.round(e.carb||0) + 'g · F ' + Math.round(e.fat||0) + 'g';
+    row.querySelector('.cals').textContent = Math.round(e.cal||0);
+    row.style.cursor = 'pointer';
+    row.addEventListener('click', function(){ openFoodDetail(e); });
+    row.querySelector('.del').addEventListener('click', function(ev){
+      ev.stopPropagation();
+      const cur = getLog(currentDate);
+      cur.splice(idx, 1);
+      setLog(currentDate, cur);
+      renderToday();
+    });
+    return row;
+  }
+
   function renderToday(){
    try {
     document.getElementById('dateLabel').textContent = fmtDateLabel(currentDate);
@@ -1100,21 +1262,25 @@
     if(entries.length === 0 && !(daySession && daySession.caloriesBurned > 0)){
       list.innerHTML += '<div class="empty-note">Nothing logged yet — add food above, log a recipe, or complete a workout.</div>';
     } else {
-      entries.forEach((e, idx) => {
-        const row = document.createElement('div');
-        row.className = 'entry';
-        row.innerHTML = '<div class="info"><div class="name"></div><div class="macros"></div></div>' +
-          '<div class="cals"></div><button class="del" aria-label="Remove">×</button>';
-        row.querySelector('.name').textContent = e.name || 'Unnamed item';
-        row.querySelector('.macros').textContent = 'P ' + Math.round(e.prot||0) + 'g · C ' + Math.round(e.carb||0) + 'g · F ' + Math.round(e.fat||0) + 'g';
-        row.querySelector('.cals').textContent = Math.round(e.cal||0);
-        row.querySelector('.del').addEventListener('click', function(){
-          const cur = getLog(currentDate);
-          cur.splice(idx, 1);
-          setLog(currentDate, cur);
-          renderToday();
+      MEALS.forEach(meal => {
+        const mealEntries = [];
+        entries.forEach((e, idx) => { if(entryMealKey(e) === meal.key) mealEntries.push({ e, idx }); });
+        const section = document.createElement('div');
+        section.className = 'meal-section';
+        const mealSums = mealEntries.reduce((acc, { e }) => {
+          acc.cal += (e.cal||0); acc.prot += (e.prot||0); acc.carb += (e.carb||0); acc.fat += (e.fat||0);
+          return acc;
+        }, { cal:0, prot:0, carb:0, fat:0 });
+        section.innerHTML = '<div class="meal-head"><span class="meal-name"></span><span class="meal-sub"></span></div><div class="meal-entries"></div>';
+        section.querySelector('.meal-name').textContent = meal.label;
+        section.querySelector('.meal-sub').textContent = mealEntries.length
+          ? Math.round(mealSums.cal) + ' kcal · P' + Math.round(mealSums.prot) + ' C' + Math.round(mealSums.carb) + ' F' + Math.round(mealSums.fat)
+          : 'Nothing logged';
+        const mealBox = section.querySelector('.meal-entries');
+        mealEntries.forEach(({ e, idx }) => {
+          mealBox.appendChild(buildFoodEntryRow(e, idx));
         });
-        list.appendChild(row);
+        list.appendChild(section);
       });
     }
     renderTodayWeight();
@@ -1124,9 +1290,21 @@
    }
   }
 
+  // Best-guess meal for whatever's being logged right now, editable via
+  // the dropdown — saves a tap in the common case without forcing one.
+  function suggestMealForNow(){
+    const h = new Date().getHours();
+    if(h < 11) return 'breakfast';
+    if(h < 15) return 'lunch';
+    if(h < 17) return 'snack';
+    return 'dinner';
+  }
+
   document.getElementById('toggleAddFood').addEventListener('click', function(){
     const card = document.getElementById('addFoodCard');
-    card.style.display = card.style.display === 'none' ? 'block' : 'none';
+    const opening = card.style.display === 'none';
+    card.style.display = opening ? 'block' : 'none';
+    if(opening) document.getElementById('fMeal').value = suggestMealForNow();
   });
 
   // ---------- barcode scanner (shared across food log, pantry, shopping list) ----------
@@ -1375,6 +1553,22 @@
     throw lastErr;
   }
 
+  // Fiber/sugar/saturated fat/sodium for the food-detail popup. OFF's
+  // "nutriments" field already returns these alongside cal/protein/carb/fat
+  // (the API doesn't let you fetch a subset), so this is free — just pull
+  // them out. Sodium is normalized to mg (OFF reports it in grams; USDA
+  // already reports it in mg) so both sources display consistently.
+  function offExtraNutrients(n, suffix){
+    const g = function(key){ const v = n[key + '_' + suffix]; return v != null ? v : null; };
+    const sodiumG = g('sodium');
+    return {
+      fiber: g('fiber'),
+      sugar: g('sugars'),
+      satFat: g('saturated-fat'),
+      sodiumMg: sodiumG != null ? sodiumG * 1000 : null,
+    };
+  }
+
   async function lookupBarcodeProduct(barcode){
     const url = 'https://world.openfoodfacts.org/api/v2/product/' + encodeURIComponent(barcode) + '.json?fields=product_name,brands,nutriments,serving_size';
     const res = await fetchWithRetry(url, 2);
@@ -1392,12 +1586,14 @@
         prot: n['proteins_100g'] != null ? n['proteins_100g'] : null,
         carb: n['carbohydrates_100g'] != null ? n['carbohydrates_100g'] : null,
         fat: n['fat_100g'] != null ? n['fat_100g'] : null,
+        ...offExtraNutrients(n, '100g'),
       },
       perServing: {
         cal: n['energy-kcal_serving'] != null ? n['energy-kcal_serving'] : null,
         prot: n['proteins_serving'] != null ? n['proteins_serving'] : null,
         carb: n['carbohydrates_serving'] != null ? n['carbohydrates_serving'] : null,
         fat: n['fat_serving'] != null ? n['fat_serving'] : null,
+        ...offExtraNutrients(n, 'serving'),
       },
     };
   }
@@ -1420,8 +1616,12 @@
         prot: nutMap['Protein'] != null ? nutMap['Protein'] : null,
         carb: nutMap['Carbohydrate, by difference'] != null ? nutMap['Carbohydrate, by difference'] : null,
         fat: nutMap['Total lipid (fat)'] != null ? nutMap['Total lipid (fat)'] : null,
+        fiber: nutMap['Fiber, total dietary'] != null ? nutMap['Fiber, total dietary'] : null,
+        sugar: nutMap['Sugars, total including NLEA'] != null ? nutMap['Sugars, total including NLEA'] : (nutMap['Total Sugars'] != null ? nutMap['Total Sugars'] : null),
+        satFat: nutMap['Fatty acids, total saturated'] != null ? nutMap['Fatty acids, total saturated'] : null,
+        sodiumMg: nutMap['Sodium, Na'] != null ? nutMap['Sodium, Na'] : null,
       },
-      perServing: { cal: null, prot: null, carb: null, fat: null },
+      perServing: { cal: null, prot: null, carb: null, fat: null, fiber: null, sugar: null, satFat: null, sodiumMg: null },
     };
   }
 
@@ -1465,12 +1665,14 @@
           prot: n['proteins_100g'] != null ? n['proteins_100g'] : null,
           carb: n['carbohydrates_100g'] != null ? n['carbohydrates_100g'] : null,
           fat: n['fat_100g'] != null ? n['fat_100g'] : null,
+          ...offExtraNutrients(n, '100g'),
         },
         perServing: {
           cal: n['energy-kcal_serving'] != null ? n['energy-kcal_serving'] : null,
           prot: n['proteins_serving'] != null ? n['proteins_serving'] : null,
           carb: n['carbohydrates_serving'] != null ? n['carbohydrates_serving'] : null,
           fat: n['fat_serving'] != null ? n['fat_serving'] : null,
+          ...offExtraNutrients(n, 'serving'),
         },
       };
     }).filter(function(p){ return p.name; });
@@ -1611,9 +1813,27 @@
 
   // ---------- scan a barcode to log food with imported macros ----------
   let scannedProduct = null;
+  // Extra nutrients (fiber/sugar/saturated fat/sodium) for whatever is
+  // currently filled into the manual fields, scaled the same way as the
+  // primary macros. Only ever set from a scanned/searched product — stays
+  // null for anything typed in by hand, and gets cleared the moment the
+  // lifter edits a field themselves so a stale scan's numbers can't end up
+  // attached to a hand-corrected entry.
+  let pendingExtra = null;
 
   function macroBase(product, useServing){
     return (useServing && product.perServing.cal != null) ? product.perServing : product.per100g;
+  }
+
+  function scaleExtra(base, mult){
+    const has = base.fiber != null || base.sugar != null || base.satFat != null || base.sodiumMg != null;
+    if(!has) return null;
+    return {
+      fiber: base.fiber != null ? Math.round(base.fiber * mult * 10) / 10 : null,
+      sugar: base.sugar != null ? Math.round(base.sugar * mult * 10) / 10 : null,
+      satFat: base.satFat != null ? Math.round(base.satFat * mult * 10) / 10 : null,
+      sodiumMg: base.sodiumMg != null ? Math.round(base.sodiumMg * mult) : null,
+    };
   }
 
   function updateScanMacroPreview(){
@@ -1666,7 +1886,15 @@
     document.getElementById('fProt').value = Math.round((base.prot||0) * mult);
     document.getElementById('fCarb').value = Math.round((base.carb||0) * mult);
     document.getElementById('fFat').value = Math.round((base.fat||0) * mult);
+    pendingExtra = scaleExtra(base, mult);
     document.getElementById('scanFoodPreview').style.display = 'none';
+  });
+
+  // A hand edit after using a scanned value means the entry no longer
+  // exactly matches what was looked up — drop the stale extra-nutrient
+  // data rather than attach it to numbers the lifter has since corrected.
+  ['fName','fCal','fProt','fCarb','fFat'].forEach(function(id){
+    document.getElementById(id).addEventListener('input', function(){ pendingExtra = null; });
   });
 
   document.getElementById('saveFoodBtn').addEventListener('click', function(){
@@ -1675,14 +1903,18 @@
     const prot = parseFloat(document.getElementById('fProt').value) || 0;
     const carb = parseFloat(document.getElementById('fCarb').value) || 0;
     const fat = parseFloat(document.getElementById('fFat').value) || 0;
+    const meal = document.getElementById('fMeal').value;
     if(!name){ document.getElementById('fName').focus(); return; }
     const entries = getLog(currentDate);
-    entries.push({ name, cal, prot, carb, fat });
+    const entry = { name, cal, prot, carb, fat, meal };
+    if(pendingExtra) entry.extra = pendingExtra;
+    entries.push(entry);
     const ok = setLog(currentDate, entries);
     if(!ok){
       showConfirm('Couldn\u2019t save that food — your browser storage may be full. Try deleting some old progress photos to free up space, then try again.', function(){});
       return;
     }
+    pendingExtra = null;
     ['fName','fCal','fProt','fCarb','fFat'].forEach(id => document.getElementById(id).value = '');
     document.getElementById('addFoodCard').style.display = 'none';
     renderToday();
@@ -1690,7 +1922,7 @@
 
   function logRecipeToToday(recipe){
     const entries = getLog(currentDate);
-    entries.push({ name: recipe.name, cal: recipe.cal, prot: recipe.prot, carb: recipe.carb, fat: recipe.fat });
+    entries.push({ name: recipe.name, cal: recipe.cal, prot: recipe.prot, carb: recipe.carb, fat: recipe.fat, meal: suggestMealForNow() });
     const ok = setLog(currentDate, entries);
     if(!ok){
       showConfirm('Couldn\u2019t save that food — your browser storage may be full. Try deleting some old progress photos to free up space, then try again.', function(){});
@@ -2204,6 +2436,7 @@
           document.getElementById('fProt').value = item.prot;
           document.getElementById('fCarb').value = item.carb;
           document.getElementById('fFat').value = item.fat;
+          pendingExtra = null; // local foodDB items have no extra nutrient data
           document.getElementById('dbSearch').value = '';
           box.classList.remove('open');
           box.innerHTML = '';
