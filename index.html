@@ -357,6 +357,7 @@
   .add-missing-btn:hover { border-color: var(--steel); }
   .ing-list li.have { color: var(--text-faint); text-decoration: line-through; }
   .ing-list li.missing { color: var(--text); }
+  .ing-list li.plain { color: var(--text-dim); }
 
   /* Shopping list / budget */
   .budget-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
@@ -845,6 +846,28 @@
     </div>
 
     <div class="settings-card">
+      <div class="sec-head" style="margin:0 0 12px;">
+        <h4 style="margin:0;">Recipe search (optional)</h4>
+        <button class="link-btn" id="toggleSpoonacularBtn">Minimize</button>
+      </div>
+      <div id="spoonacularBody">
+        <div class="note" style="margin-top:0;">Recipes tab search that finds nothing locally checks TheMealDB by default — free, no signup, but no calorie/macro info. Connect a free Spoonacular key instead and online results come with real macros and log in one tap, same as the built-in recipes. This key is only saved on this device. If it's ever invalid or over its daily limit, search quietly falls back to TheMealDB instead of failing.</div>
+        <label class="f" style="margin-top:12px;">Spoonacular API key</label>
+        <input type="text" id="spoonacularKeyInput" placeholder="Paste your key here — leave blank to use TheMealDB" autocomplete="off">
+        <button class="link-btn" id="toggleSpoonacularHelp" style="padding:4px 0 0;">How do I get a free key?</button>
+        <div id="spoonacularHelpBox" style="display:none; margin-top:8px;">
+          <ol style="margin:0; padding-left:18px; font-size:12.5px; color:var(--text-dim); line-height:1.7;">
+            <li>Open <a href="https://spoonacular.com/food-api" target="_blank" rel="noreferrer" style="color:var(--brass);">spoonacular.com/food-api</a> and create a free account — no credit card needed.</li>
+            <li>Your API key is shown on your account/profile page once you're signed in.</li>
+            <li>Copy it and paste it into the field above. That's it.</li>
+            <li>Free plan is 50 points/day (about 45 recipe-with-nutrition lookups) — plenty for personal use.</li>
+          </ol>
+          <div class="note" style="margin-top:8px;">Not comfortable doing that? Just leave the field blank — online recipe search keeps working via TheMealDB, just without macros.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="settings-card">
       <h4>Data</h4>
       <div class="note" style="margin-top:0;">Everything is stored privately in this browser only — nothing leaves your device. Clearing it removes all logged food and workout history.</div>
       <button class="btn ghost" id="resetAllBtn" style="margin-top:10px;">Clear all data</button>
@@ -1102,6 +1125,19 @@
   });
   document.getElementById('toggleUsdaHelp').addEventListener('click', function(){
     const box = document.getElementById('usdaHelpBox');
+    box.style.display = box.style.display === 'none' ? 'block' : 'none';
+  });
+
+  // ---------- Spoonacular recipe search key (optional, per-device) ----------
+  function getSpoonacularKey(){ return safeGet('il_spoonacular_key', ''); }
+  function setSpoonacularKey(k){ safeSet('il_spoonacular_key', k); }
+
+  document.getElementById('spoonacularKeyInput').value = getSpoonacularKey();
+  document.getElementById('spoonacularKeyInput').addEventListener('input', function(){
+    setSpoonacularKey(this.value.trim());
+  });
+  document.getElementById('toggleSpoonacularHelp').addEventListener('click', function(){
+    const box = document.getElementById('spoonacularHelpBox');
     box.style.display = box.style.display === 'none' ? 'block' : 'none';
   });
 
@@ -2918,16 +2954,138 @@
     });
   }
 
-  // ---------- online recipe search (TheMealDB — free, no signup/key) ----------
+  // ---------- online recipe search (Spoonacular when a key is set, else
+  // TheMealDB — free, no signup/key) ----------
   // Mirrors the food-search-falls-back-to-Open-Food-Facts pattern in
   // renderDbResults(): only fires when nothing local matches, after a
-  // debounce. TheMealDB has no nutrition data and its free-text ingredient
-  // measures ("1 1/2 lbs", "to taste") are too inconsistent to reliably
-  // estimate macros from, so these results show name/ingredients/method
-  // only — "Log it" opens the manual food form instead of guessing a
-  // calorie number.
+  // debounce. Both sources are normalized to the same shape so one card
+  // renderer handles either. TheMealDB has no nutrition data and its
+  // free-text ingredient measures ("1 1/2 lbs", "to taste") are too
+  // inconsistent to reliably estimate macros from, so those results show
+  // name/ingredients/method only — "Log it" opens the manual food form
+  // instead of guessing a calorie number. Spoonacular results come with
+  // real macros and log in one tap, same as the built-in recipes.
   let onlineRecipeSearchTimer = null;
   let onlineRecipeSearchSeq = 0;
+
+  function stripHtml(html){
+    const tmp = document.createElement('div');
+    tmp.innerHTML = html;
+    return (tmp.textContent || '').trim();
+  }
+
+  async function fetchMealDbResults(query){
+    const res = await fetch('https://www.themealdb.com/api/json/v1/1/search.php?s=' + encodeURIComponent(query));
+    const data = await res.json();
+    const meals = data && data.meals;
+    if(!meals) return [];
+    return meals.slice(0, 8).map(function(meal){
+      const ingredientLines = [];
+      for(let i = 1; i <= 20; i++){
+        const ing = meal['strIngredient' + i];
+        const measure = meal['strMeasure' + i];
+        if(ing && ing.trim()) ingredientLines.push((measure && measure.trim() ? measure.trim() + ' ' : '') + ing.trim());
+      }
+      return {
+        title: meal.strMeal,
+        sourceLabel: [meal.strCategory, meal.strArea].filter(Boolean).join(' · ') + ' · TheMealDB',
+        ingredientLines: ingredientLines,
+        instructionsText: meal.strInstructions || '',
+        nutrition: null,
+      };
+    });
+  }
+
+  // Throws on an invalid key or an exhausted daily quota (401/402) so the
+  // caller can fall back to TheMealDB instead of showing a dead search.
+  async function fetchSpoonacularResults(query){
+    const key = getSpoonacularKey();
+    const url = 'https://api.spoonacular.com/recipes/complexSearch?number=8&addRecipeInformation=true&addRecipeNutrition=true&query=' + encodeURIComponent(query) + '&apiKey=' + encodeURIComponent(key);
+    const res = await fetch(url);
+    if(res.status === 401 || res.status === 402) throw new Error('spoonacular-auth-or-quota');
+    if(!res.ok) throw new Error('spoonacular-http-' + res.status);
+    const data = await res.json();
+    const results = (data && data.results) || [];
+    return results.map(function(r){
+      const ingredientLines = (r.extendedIngredients || []).map(function(i){ return i.original; }).filter(Boolean);
+      let instructionsText = r.instructions ? stripHtml(r.instructions) : '';
+      if(!instructionsText && Array.isArray(r.analyzedInstructions) && r.analyzedInstructions.length && r.analyzedInstructions[0].steps){
+        instructionsText = r.analyzedInstructions[0].steps.map(function(s){ return s.number + '. ' + s.step; }).join('\n');
+      }
+      const nutrients = r.nutrition && r.nutrition.nutrients;
+      function findN(name){
+        const hit = (nutrients || []).find(function(n){ return n.name === name; });
+        return hit ? Math.round(hit.amount) : null;
+      }
+      const cal = findN('Calories');
+      const nutrition = cal === null ? null : { cal: cal, prot: findN('Protein') || 0, carb: findN('Carbohydrates') || 0, fat: findN('Fat') || 0 };
+      return {
+        title: r.title,
+        sourceLabel: 'Spoonacular',
+        ingredientLines: ingredientLines,
+        instructionsText: instructionsText,
+        nutrition: nutrition,
+      };
+    });
+  }
+
+  function logExternalRecipeToToday(name, cal, prot, carb, fat){
+    const entries = getLog(currentDate);
+    entries.push({ name: name, cal: cal, prot: prot, carb: carb, fat: fat, meal: suggestMealForNow() });
+    const ok = setLog(currentDate, entries);
+    if(!ok){
+      showConfirm('Couldn’t save that food — your browser storage may be full. Try deleting some old progress photos to free up space, then try again.', function(){});
+      return;
+    }
+    renderToday();
+    switchView('today');
+    showAlert('Logged ' + name + '.');
+  }
+
+  function renderOnlineRecipeCard(box, meal){
+    const hasNutrition = !!meal.nutrition;
+    const card = document.createElement('div');
+    card.className = 'recipe-card';
+    card.innerHTML = '<div class="recipe-head"><div><div class="recipe-title"></div><div class="recipe-sub"></div></div><span class="chev">▾</span></div>' +
+      '<div class="recipe-body">' +
+      (hasNutrition
+        ? '<div class="recipe-macros"><span><b></b> kcal</span><span><b></b>g protein</span><span><b></b>g carb</span><span><b></b>g fat</span></div>'
+        : '<div class="note" style="margin-top:0;">Nutrition not available for this recipe — "Log it" opens the food form so you can fill in the calories.</div>') +
+      '<div class="recipe-section-lbl">Ingredients</div><ul class="ing-list"></ul>' +
+      '<div class="recipe-section-lbl">Method</div><p class="online-recipe-method"></p>' +
+      '<button class="btn small log-recipe-btn">Log it</button></div>';
+    card.querySelector('.recipe-title').textContent = meal.title;
+    card.querySelector('.recipe-sub').textContent = (hasNutrition ? meal.nutrition.cal + ' kcal · P' + meal.nutrition.prot + ' C' + meal.nutrition.carb + ' F' + meal.nutrition.fat + ' · ' : '') + meal.sourceLabel;
+    if(hasNutrition){
+      const bs = card.querySelectorAll('.recipe-macros b');
+      bs[0].textContent = meal.nutrition.cal; bs[1].textContent = meal.nutrition.prot; bs[2].textContent = meal.nutrition.carb; bs[3].textContent = meal.nutrition.fat;
+    }
+    const ingList = card.querySelector('.ing-list');
+    meal.ingredientLines.forEach(function(line){
+      const li = document.createElement('li');
+      li.className = 'plain';
+      li.textContent = line;
+      ingList.appendChild(li);
+    });
+    card.querySelector('.online-recipe-method').textContent = meal.instructionsText;
+    card.querySelector('.recipe-head').addEventListener('click', () => card.classList.toggle('open'));
+    card.querySelector('.log-recipe-btn').addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      if(hasNutrition){
+        logExternalRecipeToToday(meal.title, meal.nutrition.cal, meal.nutrition.prot, meal.nutrition.carb, meal.nutrition.fat);
+      } else {
+        switchView('today');
+        document.getElementById('fName').value = meal.title;
+        document.getElementById('fCal').value = '';
+        document.getElementById('fProt').value = '';
+        document.getElementById('fCarb').value = '';
+        document.getElementById('fFat').value = '';
+        pendingExtra = null;
+        document.getElementById('fName').focus();
+      }
+    });
+    box.appendChild(card);
+  }
 
   function renderOnlineRecipeResults(query){
     const box = document.getElementById('onlineRecipeResults');
@@ -2935,75 +3093,36 @@
     if(onlineRecipeSearchTimer){ clearTimeout(onlineRecipeSearchTimer); onlineRecipeSearchTimer = null; }
     onlineRecipeSearchSeq++;
     const seq = onlineRecipeSearchSeq;
-    box.innerHTML = '<div class="db-empty">No local match — checking TheMealDB online…</div>';
+    const usingSpoonacular = !!getSpoonacularKey();
+    box.innerHTML = '<div class="db-empty">No local match — checking ' + (usingSpoonacular ? 'Spoonacular' : 'TheMealDB') + ' online…</div>';
     onlineRecipeSearchTimer = setTimeout(async function(){
-      let meals = null;
+      let results = null;
+      let sourceUsed = usingSpoonacular ? 'Spoonacular' : 'TheMealDB';
       try {
-        const res = await fetch('https://www.themealdb.com/api/json/v1/1/search.php?s=' + encodeURIComponent(query));
-        const data = await res.json();
-        meals = data && data.meals;
+        if(usingSpoonacular){
+          try {
+            results = await fetchSpoonacularResults(query);
+          } catch(e){
+            results = await fetchMealDbResults(query);
+            sourceUsed = 'TheMealDB — Spoonacular key is missing, invalid, or over today’s free limit';
+          }
+        } else {
+          results = await fetchMealDbResults(query);
+        }
       } catch(e){
-        meals = null;
+        results = null;
       }
       if(seq !== onlineRecipeSearchSeq) return; // superseded by newer input
-      if(!meals){
+      if(!results){
         box.innerHTML = '<div class="db-empty">Online lookup failed — check your connection and try again.</div>';
         return;
       }
-      if(!meals.length){
+      if(!results.length){
         box.innerHTML = '<div class="db-empty">No online match either.</div>';
         return;
       }
-      box.innerHTML = '<div class="db-empty">From TheMealDB:</div>';
-      meals.slice(0, 8).forEach(meal => {
-        const ingredientLines = [];
-        for(let i = 1; i <= 20; i++){
-          const ing = meal['strIngredient' + i];
-          const measure = meal['strMeasure' + i];
-          if(ing && ing.trim()) ingredientLines.push((measure && measure.trim() ? measure.trim() + ' ' : '') + ing.trim());
-        }
-        const card = document.createElement('div');
-        card.className = 'recipe-card';
-        card.innerHTML = `
-          <div class="recipe-head">
-            <div>
-              <div class="recipe-title"></div>
-              <div class="recipe-sub"></div>
-            </div>
-            <span class="chev">▾</span>
-          </div>
-          <div class="recipe-body">
-            <div class="note" style="margin-top:0;">Nutrition not available for online recipes — "Log it" opens the food form so you can fill in the calories.</div>
-            <div class="recipe-section-lbl">Ingredients</div>
-            <ul class="ing-list"></ul>
-            <div class="recipe-section-lbl">Method</div>
-            <p class="online-recipe-method"></p>
-            <button class="btn small log-recipe-btn">Log it</button>
-          </div>`;
-        card.querySelector('.recipe-title').textContent = meal.strMeal;
-        card.querySelector('.recipe-sub').textContent = [meal.strCategory, meal.strArea].filter(Boolean).join(' · ') + ' · from TheMealDB';
-        const ingList = card.querySelector('.ing-list');
-        ingredientLines.forEach(line => {
-          const li = document.createElement('li');
-          li.className = 'have';
-          li.textContent = line;
-          ingList.appendChild(li);
-        });
-        card.querySelector('.online-recipe-method').textContent = meal.strInstructions || '';
-        card.querySelector('.recipe-head').addEventListener('click', () => card.classList.toggle('open'));
-        card.querySelector('.log-recipe-btn').addEventListener('click', (ev) => {
-          ev.stopPropagation();
-          switchView('today');
-          document.getElementById('fName').value = meal.strMeal;
-          document.getElementById('fCal').value = '';
-          document.getElementById('fProt').value = '';
-          document.getElementById('fCarb').value = '';
-          document.getElementById('fFat').value = '';
-          pendingExtra = null;
-          document.getElementById('fName').focus();
-        });
-        box.appendChild(card);
-      });
+      box.innerHTML = '<div class="db-empty">From ' + sourceUsed + ':</div>';
+      results.forEach(function(meal){ renderOnlineRecipeCard(box, meal); });
     }, 500);
   }
 
@@ -3970,6 +4089,7 @@
   setupSectionToggle('toggleTrendsBtn', 'trendsBody');
   setupSectionToggle('toggleRecipesBtn', 'recipesBody', false);
   setupSectionToggle('toggleBarcodeBtn', 'barcodeBody');
+  setupSectionToggle('toggleSpoonacularBtn', 'spoonacularBody');
 
   // ---------- progress photos (IndexedDB — photos are large, so they get
   // their own database instead of localStorage, which has a much smaller cap) ----------
