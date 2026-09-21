@@ -2133,14 +2133,59 @@
   document.getElementById('shopManualAddBtn').addEventListener('click', addManualShopItem);
   document.getElementById('shopManualName').addEventListener('keydown', function(e){ if(e.key === 'Enter'){ e.preventDefault(); addManualShopItem(); } });
 
+  // The local foodDB is a small curated list of generic whole foods — it
+  // was never going to have branded/packaged items like a specific soup.
+  // When it comes up empty, fall back to an Open Food Facts name search
+  // (the same source barcode scanning uses) after a short debounce, so
+  // typing doesn't fire a network request per keystroke.
+  let dbOnlineSearchTimer = null;
+  let dbOnlineSearchSeq = 0;
+
   function renderDbResults(query){
     const box = document.getElementById('dbResults');
     const q = query.trim().toLowerCase();
+    if(dbOnlineSearchTimer){ clearTimeout(dbOnlineSearchTimer); dbOnlineSearchTimer = null; }
+    dbOnlineSearchSeq++;
     if(!q){ box.classList.remove('open'); box.innerHTML = ''; return; }
     const matches = foodDB.filter(f => f.name.toLowerCase().includes(q)).slice(0, 8);
     box.innerHTML = '';
     if(matches.length === 0){
-      box.innerHTML = '<div class="db-empty">No match — enter it manually below.</div>';
+      box.innerHTML = '<div class="db-empty">No local match — checking Open Food Facts…</div>';
+      const seq = dbOnlineSearchSeq;
+      const rawQuery = query.trim();
+      dbOnlineSearchTimer = setTimeout(async function(){
+        let online;
+        try {
+          online = await searchBarcodeProductsByName(rawQuery);
+        } catch(e){
+          online = null;
+        }
+        if(seq !== dbOnlineSearchSeq) return; // superseded by newer input
+        if(!online){
+          box.innerHTML = '<div class="db-empty">No local match, and the online lookup failed — enter it manually below.</div>';
+          return;
+        }
+        if(!online.length){
+          box.innerHTML = '<div class="db-empty">No match — enter it manually below.</div>';
+          return;
+        }
+        box.innerHTML = '<div class="db-empty">From Open Food Facts:</div>';
+        online.forEach(function(p){
+          const row = document.createElement('div');
+          row.className = 'db-result-item';
+          row.innerHTML = '<div class="db-result-name"></div><div class="db-result-macros"></div>';
+          row.querySelector('.db-result-name').textContent = p.name + (p.brand ? ' (' + p.brand + ')' : '');
+          row.querySelector('.db-result-macros').textContent = bcMacroSummary(p);
+          row.addEventListener('click', function(){
+            scannedProduct = p;
+            renderScanFoodPreview();
+            document.getElementById('dbSearch').value = '';
+            box.classList.remove('open');
+            box.innerHTML = '';
+          });
+          box.appendChild(row);
+        });
+      }, 450);
     } else {
       matches.forEach(item => {
         const row = document.createElement('div');
