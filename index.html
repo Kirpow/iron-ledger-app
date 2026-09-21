@@ -222,8 +222,10 @@
 
   /* Workout */
   .day-tabs { display: flex; gap: 6px; margin-bottom: 14px; overflow-x: auto; }
-  .day-tab { flex-shrink: 0; padding: 8px 14px; border-radius: var(--radius-s); border: 1px solid var(--border); background: var(--panel-2); color: var(--text-dim); font-size: 13.5px; cursor: pointer; }
+  .day-tab { flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 7px 14px; border-radius: var(--radius-s); border: 1px solid var(--border); background: var(--panel-2); color: var(--text-dim); font-size: 13.5px; line-height: 1.25; cursor: pointer; }
   .day-tab.active { background: var(--brass); color: #1c1a12; border-color: var(--brass); font-weight: 600; }
+  .day-tab-date { font-size: 10.5px; color: var(--text-faint); font-weight: 400; }
+  .day-tab.active .day-tab-date { color: rgba(28,26,18,0.65); }
   .workout-meta { font-size: 13px; color: var(--text-dim); margin-bottom: 14px; line-height: 1.5; }
   .ex-card { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius-m); padding: 13px 14px; margin-bottom: 8px; }
   .ex-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 3px; }
@@ -600,9 +602,9 @@
       <div class="timer-actions">
         <button class="btn" id="startWorkoutBtn">Start workout</button>
         <button class="btn" id="finishSetBtn" style="display:none;">Finished set</button>
-        <button class="btn" id="startNextSetBtn" style="display:none;">Start next set</button>
+        <button class="btn" id="logSetBtn" style="display:none;">Log it</button>
       </div>
-      <button class="btn ghost small" id="endWorkoutBtn" style="display:none; margin-top:8px; width:100%;">End workout</button>
+      <button class="btn ghost small" id="endWorkoutBtn" style="display:none; margin-top:8px; width:100%;">Finish working out for the day</button>
     </div>
 
     <button class="btn ghost add-ex-btn" id="toggleExPicker">+ Add exercise</button>
@@ -2464,7 +2466,10 @@
     program.forEach(day => {
       const btn = document.createElement('button');
       btn.className = 'day-tab' + (day.key === activeDay ? ' active' : '');
-      btn.textContent = day.label;
+      const last = lastPerformedDate(day.key);
+      btn.innerHTML = '<span class="day-tab-label"></span><span class="day-tab-date"></span>';
+      btn.querySelector('.day-tab-label').textContent = day.label;
+      btn.querySelector('.day-tab-date').textContent = last ? fmtShortDate(last) : 'Not logged yet';
       btn.addEventListener('click', () => { activeDay = day.key; document.getElementById('exPicker').style.display='none'; renderDayTabs(); renderExercises(); });
       wrap.appendChild(btn);
     });
@@ -2729,7 +2734,7 @@
   function renderTimerButtons(){
     document.getElementById('startWorkoutBtn').style.display = sessionState === 'idle' ? 'inline-flex' : 'none';
     document.getElementById('finishSetBtn').style.display = sessionState === 'lifting' ? 'inline-flex' : 'none';
-    document.getElementById('startNextSetBtn').style.display = sessionState === 'resting' ? 'inline-flex' : 'none';
+    document.getElementById('logSetBtn').style.display = sessionState === 'resting' ? 'inline-flex' : 'none';
     document.getElementById('endWorkoutBtn').style.display = sessionState === 'idle' ? 'none' : 'block';
     document.getElementById('phaseLabel').textContent =
       sessionState === 'idle' ? 'Ready to start' :
@@ -2768,7 +2773,7 @@
     return Math.round(avgMet * 3.5 * wKg / 200 * minutes);
   }
 
-  function saveSessionToLog(date, totalSeconds, liftingSeconds, restingSeconds, caloriesBurned){
+  function saveSessionToLog(date, totalSeconds, liftingSeconds, restingSeconds, caloriesBurned, dayKey){
     const log = safeGet('il_session_log', {});
     const cur = log[date] || { totalSeconds:0, liftingSeconds:0, restingSeconds:0, sessions:0, caloriesBurned:0 };
     cur.totalSeconds += totalSeconds;
@@ -2776,8 +2781,23 @@
     cur.restingSeconds += restingSeconds;
     cur.sessions += 1;
     cur.caloriesBurned = (cur.caloriesBurned || 0) + caloriesBurned;
+    if(dayKey) cur.dayKey = dayKey;
     log[date] = cur;
     safeSet('il_session_log', log);
+  }
+
+  // Most recent date a given program day (e.g. "Day 1") was actually
+  // trained, from session-log entries tagged with that day's key. Days
+  // logged before this tagging existed won't have one — shown as "not
+  // logged yet" rather than guessed at.
+  function lastPerformedDate(dayKey){
+    const log = safeGet('il_session_log', {});
+    const dates = Object.keys(log).filter(d => log[d].dayKey === dayKey).sort();
+    return dates.length ? dates[dates.length - 1] : null;
+  }
+  function fmtShortDate(dateStr){
+    const [y,m,d] = dateStr.split('-').map(Number);
+    return new Date(y, m-1, d).toLocaleDateString(undefined, { month:'short', day:'numeric' });
   }
 
   document.getElementById('startWorkoutBtn').addEventListener('click', function(){
@@ -2796,10 +2816,25 @@
     renderTimerButtons();
   });
 
-  document.getElementById('startNextSetBtn').addEventListener('click', function(){
+  document.getElementById('logSetBtn').addEventListener('click', function(){
     sessionTotals.restingSeconds += (Date.now() - phaseStartTime) / 1000;
+    // Mark the exercise just rested from as done (keeping whatever weight
+    // was already typed in for it — the weight input auto-saves on every
+    // keystroke), then roll straight into the next exercise in today's
+    // workout instead of making the lifter re-pick it from the dropdown.
+    const day = program.find(d => d.key === activeDay);
+    const ex = day && day.exercises[timerExerciseIdx];
+    if(day && ex){
+      const exId = day.key + '_' + timerExerciseIdx + '_' + ex.id;
+      const log = getWorkoutLog();
+      const existing = log[exId] || { weight: '', done: false };
+      log[exId] = { weight: existing.weight, done: true };
+      setWorkoutLog(log);
+    }
+    timerExerciseIdx++;
     sessionState = 'lifting';
     phaseStartTime = Date.now();
+    renderExercises();
     renderTimerButtons();
   });
 
@@ -2813,11 +2848,12 @@
     const totalSeconds = Math.round((now - sessionStartTime) / 1000);
     const day = program.find(d => d.key === activeDay);
     const calories = estimateBurnFromMinutes(day, totalSeconds / 60);
-    saveSessionToLog(todayStr(), totalSeconds, Math.round(sessionTotals.liftingSeconds), Math.round(sessionTotals.restingSeconds), calories);
+    saveSessionToLog(todayStr(), totalSeconds, Math.round(sessionTotals.liftingSeconds), Math.round(sessionTotals.restingSeconds), calories, activeDay);
     sessionState = 'idle';
     sessionStartTime = null;
     phaseStartTime = null;
     renderTimerButtons();
+    renderDayTabs();
     renderTimeChart();
     renderBurnHistory();
     if(currentDate === todayStr()) renderToday();
