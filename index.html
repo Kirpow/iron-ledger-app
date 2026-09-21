@@ -311,10 +311,12 @@
   .cal-dot { width: 5px; height: 5px; border-radius: 50%; }
   .cal-dot.food { background: var(--brass); }
   .cal-dot.workout { background: var(--rust); }
+  .cal-dot.photo { background: var(--sage); }
   .cal-legend { display: flex; gap: 16px; margin-top: 10px; font-size: 11.5px; color: var(--text-faint); }
   .cal-legend .dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; margin-right: 5px; }
   .cal-legend .dot.food { background: var(--brass); }
   .cal-legend .dot.workout { background: var(--rust); }
+  .cal-legend .dot.photo { background: var(--sage); }
 
   /* Pantry */
   .pantry-card { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius-m); padding: 14px; margin-bottom: 16px; }
@@ -361,13 +363,6 @@
   .photo-slot .ps-add { font-size: 11.5px; color: var(--text-faint); text-align: center; padding: 6px; }
   .photo-slot .ps-label { position: absolute; top: 5px; left: 6px; font-size: 10.5px; background: rgba(0,0,0,0.55); color: #fff; padding: 2px 6px; border-radius: 3px; }
   .photo-slot .ps-del { position: absolute; top: 4px; right: 4px; width: 20px; height: 20px; border-radius: 50%; background: rgba(0,0,0,0.6); border: none; color: #fff; font-size: 13px; cursor: pointer; line-height: 1; }
-  .gallery-date { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius-m); padding: 12px; margin-bottom: 10px; }
-  .gallery-date .gd-head { font-size: 13px; color: var(--text-dim); margin-bottom: 8px; font-weight: 500; }
-  .gallery-date .gd-shots { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-  .gd-shot { aspect-ratio: 3/4; border-radius: var(--radius-s); overflow: hidden; background: var(--panel-2); position: relative; cursor: pointer; }
-  .gd-shot img { width: 100%; height: 100%; object-fit: cover; display: block; }
-  .gd-shot .ps-label { position: absolute; top: 4px; left: 5px; font-size: 10px; background: rgba(0,0,0,0.55); color: #fff; padding: 1px 5px; border-radius: 3px; }
-  .gd-shot.empty { display: flex; align-items: center; justify-content: center; color: var(--text-faint); font-size: 10.5px; cursor: default; }
   .lightbox-overlay { position: fixed; inset: 0; background: rgba(10,10,10,0.92); z-index: 100; display: flex; align-items: center; justify-content: center; padding: 24px; }
   .lightbox-overlay img { max-width: 100%; max-height: 100%; border-radius: 4px; }
   .lightbox-close { position: absolute; top: 18px; right: 18px; background: rgba(255,255,255,0.12); border: none; color: #fff; width: 34px; height: 34px; border-radius: 50%; font-size: 18px; cursor: pointer; }
@@ -653,57 +648,62 @@
         <div class="cal-legend">
           <span><span class="dot food"></span>Food logged</span>
           <span><span class="dot workout"></span>Workout logged</span>
+          <span><span class="dot photo"></span>Progress photo</span>
         </div>
       </div>
     </div>
 
-    <div class="sec-head"><h3>Body weight</h3></div>
-    <div class="chart-card"><svg id="weightChart" viewBox="0 0 600 180" preserveAspectRatio="none"></svg></div>
-    <div class="log-form-card">
-      <div class="field-row">
-        <div class="field"><label class="f">Date</label><input type="date" id="wDate"></div>
-        <div class="field"><label class="f">Weight (lb)</label><input type="text" inputmode="decimal" id="wVal" placeholder="185"></div>
+    <div class="sec-head"><h3>Body weight</h3><button class="link-btn" id="toggleWeightBtn">Minimize</button></div>
+    <div id="weightBody">
+      <div class="chart-card"><svg id="weightChart" viewBox="0 0 600 180" preserveAspectRatio="none"></svg></div>
+      <div class="log-form-card">
+        <div class="field-row">
+          <div class="field"><label class="f">Date</label><input type="date" id="wDate"></div>
+          <div class="field"><label class="f">Weight (lb)</label><input type="text" inputmode="decimal" id="wVal" placeholder="185"></div>
+        </div>
+        <button class="btn" id="logWeightBtn">Log weight</button>
       </div>
-      <button class="btn" id="logWeightBtn">Log weight</button>
-    </div>
-    <div id="weightHistory"></div>
-
-    <div class="sec-head"><h3>Measurements</h3></div>
-    <div class="stat-grid" id="measureStats"></div>
-    <div class="log-form-card">
-      <div class="field-row">
-        <div class="field"><label class="f">Date</label><input type="date" id="mDate"></div>
-      </div>
-      <div class="measure-grid">
-        <div class="field"><label class="f">Waist (in)</label><input type="text" inputmode="decimal" id="mWaist"></div>
-        <div class="field"><label class="f">Chest (in)</label><input type="text" inputmode="decimal" id="mChest"></div>
-        <div class="field"><label class="f">Hips (in)</label><input type="text" inputmode="decimal" id="mHips"></div>
-        <div class="field"><label class="f">Neck (in)</label><input type="text" inputmode="decimal" id="mNeck"></div>
-        <div class="field"><label class="f">Left arm (in)</label><input type="text" inputmode="decimal" id="mArmL"></div>
-        <div class="field"><label class="f">Right arm (in)</label><input type="text" inputmode="decimal" id="mArmR"></div>
-        <div class="field"><label class="f">Left thigh (in)</label><input type="text" inputmode="decimal" id="mThighL"></div>
-        <div class="field"><label class="f">Right thigh (in)</label><input type="text" inputmode="decimal" id="mThighR"></div>
-      </div>
-      <div class="note" style="margin-top:0; margin-bottom:10px;">Leave any field blank to skip it — only filled-in fields are saved.</div>
-      <button class="btn" id="logMeasureBtn">Save measurements</button>
-    </div>
-    <div id="measureHistory"></div>
-
-    <div class="sec-head"><h3>Progress photos</h3></div>
-    <div class="log-form-card">
-      <div class="field-row">
-        <div class="field"><label class="f">Date</label><input type="date" id="pDate"></div>
-      </div>
-      <div class="photo-slots" id="photoSlots"></div>
-      <input type="file" accept="image/*" id="fileFront" style="display:none;">
-      <input type="file" accept="image/*" id="fileSide" style="display:none;">
-      <input type="file" accept="image/*" id="fileBack" style="display:none;">
-      <div class="note" style="margin-top:10px;">Photos are resized and compressed, then stored privately in this browser only — nothing is uploaded anywhere. A large photo library can eventually fill your browser's storage; delete older ones below if that happens.</div>
+      <div id="weightHistory"></div>
     </div>
 
-    <div id="photoGallery"></div>
+    <div class="sec-head"><h3>Measurements</h3><button class="link-btn" id="toggleMeasureBtn">Minimize</button></div>
+    <div id="measureBody">
+      <div class="stat-grid" id="measureStats"></div>
+      <div class="log-form-card">
+        <div class="field-row">
+          <div class="field"><label class="f">Date</label><input type="date" id="mDate"></div>
+        </div>
+        <div class="measure-grid">
+          <div class="field"><label class="f">Waist (in)</label><input type="text" inputmode="decimal" id="mWaist"></div>
+          <div class="field"><label class="f">Chest (in)</label><input type="text" inputmode="decimal" id="mChest"></div>
+          <div class="field"><label class="f">Hips (in)</label><input type="text" inputmode="decimal" id="mHips"></div>
+          <div class="field"><label class="f">Neck (in)</label><input type="text" inputmode="decimal" id="mNeck"></div>
+          <div class="field"><label class="f">Left arm (in)</label><input type="text" inputmode="decimal" id="mArmL"></div>
+          <div class="field"><label class="f">Right arm (in)</label><input type="text" inputmode="decimal" id="mArmR"></div>
+          <div class="field"><label class="f">Left thigh (in)</label><input type="text" inputmode="decimal" id="mThighL"></div>
+          <div class="field"><label class="f">Right thigh (in)</label><input type="text" inputmode="decimal" id="mThighR"></div>
+        </div>
+        <div class="note" style="margin-top:0; margin-bottom:10px;">Leave any field blank to skip it — only filled-in fields are saved.</div>
+        <button class="btn" id="logMeasureBtn">Save measurements</button>
+      </div>
+      <div id="measureHistory"></div>
+    </div>
 
-    <div class="sec-head"><h3>Compare two dates</h3></div>
+    <div class="sec-head"><h3>Progress photos</h3><button class="link-btn" id="togglePhotosBtn">Minimize</button></div>
+    <div id="photosBody">
+      <div class="log-form-card">
+        <div class="field-row">
+          <div class="field"><label class="f">Date</label><input type="date" id="pDate"></div>
+        </div>
+        <div class="photo-slots" id="photoSlots"></div>
+        <input type="file" accept="image/*" id="fileFront" style="display:none;">
+        <input type="file" accept="image/*" id="fileSide" style="display:none;">
+        <input type="file" accept="image/*" id="fileBack" style="display:none;">
+        <div class="note" style="margin-top:10px;">Photos are resized and compressed, then stored privately in this browser only — nothing is uploaded anywhere. A large photo library can eventually fill your browser's storage. Each day's photos are only shown here for that day — pick a date above, or jump to a day from the calendar, to see or add its photos. Use Compare two dates below to view photos from two different days side by side.</div>
+      </div>
+    </div>
+
+    <div class="sec-head"><h3>Compare two dates</h3><button class="link-btn" id="toggleCompareBtn">Minimize</button></div>
     <div class="log-form-card" id="compareCard">
       <div class="field-row">
         <div class="field"><label class="f">Earlier</label><select id="compareA"></select></div>
@@ -713,9 +713,11 @@
       <div class="compare-row" id="compareRow"></div>
     </div>
 
-    <div class="sec-head"><h3>Time trends</h3></div>
-    <div class="chart-card"><svg id="timeChart" viewBox="0 0 600 180" preserveAspectRatio="none"></svg></div>
-    <div class="trend-blurb" id="trendBlurb"></div>
+    <div class="sec-head"><h3>Time trends</h3><button class="link-btn" id="toggleTrendsBtn">Minimize</button></div>
+    <div id="trendsBody">
+      <div class="chart-card"><svg id="timeChart" viewBox="0 0 600 180" preserveAspectRatio="none"></svg></div>
+      <div class="trend-blurb" id="trendBlurb"></div>
+    </div>
 
     <div class="sec-head"><h3>Calories burned by day</h3></div>
     <div id="burnHistory"></div>
@@ -3091,7 +3093,6 @@
     renderMeasureStats();
     renderMeasureHistory();
     renderPhotoSlots();
-    renderPhotoGallery();
     renderCompare();
     renderTimeChart();
     renderBurnHistory();
@@ -3106,7 +3107,7 @@
     return y + '-' + String(m + 1).padStart(2,'0') + '-' + String(d).padStart(2,'0');
   }
 
-  function renderCalendar(){
+  async function renderCalendar(){
     const label = new Date(calViewYear, calViewMonth, 1).toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
     document.getElementById('calMonthLabel').textContent = label;
 
@@ -3123,6 +3124,7 @@
     const daysInMonth = new Date(calViewYear, calViewMonth + 1, 0).getDate();
     const todayKey = todayStr();
     const sessionLog = safeGet('il_session_log', {});
+    const photoDates = new Set(Object.keys(await getAllPhotos()));
 
     for(let i = 0; i < firstDayOffset; i++){
       const el = document.createElement('div');
@@ -3134,6 +3136,7 @@
       const hasFood = getLog(key).length > 0;
       const sess = sessionLog[key];
       const hasWorkout = !!(sess && (sess.caloriesBurned > 0 || sess.sessions > 0));
+      const hasPhoto = photoDates.has(key);
 
       const cell = document.createElement('div');
       let cls = 'cal-cell';
@@ -3144,8 +3147,11 @@
       const dots = cell.querySelector('.cal-dots');
       if(hasFood){ const dd = document.createElement('span'); dd.className = 'cal-dot food'; dots.appendChild(dd); }
       if(hasWorkout){ const dd = document.createElement('span'); dd.className = 'cal-dot workout'; dots.appendChild(dd); }
+      if(hasPhoto){ const dd = document.createElement('span'); dd.className = 'cal-dot photo'; dots.appendChild(dd); }
       cell.addEventListener('click', function(){
         currentDate = key;
+        document.getElementById('pDate').value = key;
+        renderPhotoSlots();
         renderToday();
         renderCalendar();
         switchView('today');
@@ -3169,6 +3175,20 @@
     document.getElementById('calendarBody').style.display = calendarExpanded ? 'block' : 'none';
     this.textContent = calendarExpanded ? 'Minimize' : 'Expand';
   });
+
+  function setupSectionToggle(btnId, bodyId){
+    let expanded = true;
+    const btn = document.getElementById(btnId);
+    btn.addEventListener('click', function(){
+      expanded = !expanded;
+      document.getElementById(bodyId).style.display = expanded ? 'block' : 'none';
+      btn.textContent = expanded ? 'Minimize' : 'Expand';
+    });
+  }
+  setupSectionToggle('toggleWeightBtn', 'weightBody');
+  setupSectionToggle('toggleMeasureBtn', 'measureBody');
+  setupSectionToggle('togglePhotosBtn', 'photosBody');
+  setupSectionToggle('toggleTrendsBtn', 'trendsBody');
 
   // ---------- progress photos (IndexedDB — photos are large, so they get
   // their own database instead of localStorage, which has a much smaller cap) ----------
@@ -3318,7 +3338,7 @@
           ev.stopPropagation();
           await deleteDayPhotoAngle(date, a.key);
           renderPhotoSlots();
-          renderPhotoGallery();
+          renderCalendar();
           renderCompare();
         });
       } else {
@@ -3343,7 +3363,7 @@
           return;
         }
         renderPhotoSlots();
-        renderPhotoGallery();
+        renderCalendar();
         renderCompare();
       } catch(err){
         showConfirm('Couldn\u2019t process that photo. Try a different image.', function(){});
@@ -3359,38 +3379,6 @@
     overlay.addEventListener('click', () => overlay.remove());
     overlay.querySelector('.lightbox-close').addEventListener('click', (e) => { e.stopPropagation(); overlay.remove(); });
     document.body.appendChild(overlay);
-  }
-
-  async function renderPhotoGallery(){
-    const photos = await getAllPhotos();
-    const dates = Object.keys(photos).sort((a,b) => b.localeCompare(a));
-    const box = document.getElementById('photoGallery');
-    box.innerHTML = '';
-    if(dates.length === 0){
-      box.innerHTML = '<div class="empty-note">No progress photos yet — add one above.</div>';
-      return;
-    }
-    dates.forEach(date => {
-      const day = photos[date];
-      const card = document.createElement('div');
-      card.className = 'gallery-date';
-      card.innerHTML = '<div class="gd-head"></div><div class="gd-shots"></div>';
-      card.querySelector('.gd-head').textContent = date;
-      const shots = card.querySelector('.gd-shots');
-      PHOTO_ANGLES.forEach(a => {
-        const shot = document.createElement('div');
-        if(day[a.key]){
-          shot.className = 'gd-shot';
-          shot.innerHTML = '<span class="ps-label">' + a.label + '</span><img src="' + photoSrc(day[a.key]) + '">';
-          shot.addEventListener('click', () => openLightbox(day[a.key]));
-        } else {
-          shot.className = 'gd-shot empty';
-          shot.textContent = a.label;
-        }
-        shots.appendChild(shot);
-      });
-      box.appendChild(card);
-    });
   }
 
   let compareAngle = 'front';
@@ -3411,33 +3399,45 @@
     return Object.keys(photos).sort((a,b) => a.localeCompare(b));
   }
 
+  let compareExpanded = true;
+
   async function renderCompare(){
     const dates = await datesWithPhotos();
     const selA = document.getElementById('compareA');
     const selB = document.getElementById('compareB');
     const card = document.getElementById('compareCard');
-    if(dates.length < 2){
-      card.style.display = 'none';
-      return;
-    }
-    card.style.display = 'block';
+    const hasEnough = dates.length >= 2;
+    card.style.display = (compareExpanded && hasEnough) ? 'block' : 'none';
+    if(!hasEnough) return;
     const prevA = selA.value, prevB = selB.value;
-    [selA, selB].forEach(sel => sel.innerHTML = dates.map(d => '<option value="'+d+'">'+d+'</option>').join(''));
-    selA.value = dates.includes(prevA) ? prevA : dates[0];
-    selB.value = dates.includes(prevB) ? prevB : dates[dates.length - 1];
+    const options = '<option value="">— choose a date —</option>' + dates.map(d => '<option value="'+d+'">'+d+'</option>').join('');
+    [selA, selB].forEach(sel => sel.innerHTML = options);
+    // Blank until the user picks dates — don't guess at a comparison.
+    selA.value = dates.includes(prevA) ? prevA : '';
+    selB.value = dates.includes(prevB) ? prevB : '';
     renderCompareTabs();
     renderCompareImages();
   }
+
+  document.getElementById('toggleCompareBtn').addEventListener('click', function(){
+    compareExpanded = !compareExpanded;
+    this.textContent = compareExpanded ? 'Minimize' : 'Expand';
+    renderCompare();
+  });
 
   document.getElementById('compareA').addEventListener('change', renderCompareImages);
   document.getElementById('compareB').addEventListener('change', renderCompareImages);
 
   async function renderCompareImages(){
-    const photos = await getAllPhotos();
     const dateA = document.getElementById('compareA').value;
     const dateB = document.getElementById('compareB').value;
     const row = document.getElementById('compareRow');
     row.innerHTML = '';
+    if(!dateA || !dateB){
+      row.innerHTML = '<div class="empty-note">Choose two dates above to compare.</div>';
+      return;
+    }
+    const photos = await getAllPhotos();
     [[dateA, 'A'], [dateB, 'B']].forEach(([date]) => {
       const col = document.createElement('div');
       col.className = 'compare-col';
