@@ -1193,11 +1193,11 @@
       if(!cameras || !cameras.length) return null;
       const byLabel = function(re){ return cameras.find(function(c){ return re.test(c.label || ''); }); };
       const plainBack = byLabel(/back camera$/i) || byLabel(/^back camera/i);
-      if(plainBack) return plainBack.id;
+      if(plainBack) return plainBack;
       const anyBackNotWide = byLabel(/back/i) ? cameras.find(function(c){
         return /back/i.test(c.label || '') && !/ultra\s*wide|telephoto/i.test(c.label || '');
       }) : null;
-      if(anyBackNotWide) return anyBackNotWide.id;
+      if(anyBackNotWide) return anyBackNotWide;
       return null;
     } catch(e){
       return null;
@@ -1263,14 +1263,20 @@
     bcInstance = scanner;
     bcActive = true;
     bcDebugAppend('enumerating cameras...');
-    const backCameraId = await pickBackCameraId();
-    bcDebugAppend('picked camera: ' + (backCameraId || '(facingMode fallback)'));
+    const backCamera = await pickBackCameraId();
+    bcDebugAppend('picked camera: ' + (backCamera ? (backCamera.label + ' [' + backCamera.id + ']') : '(none found — facingMode fallback)'));
     if(!bcActive || bcInstance !== scanner) return; // modal was closed while we were enumerating
     // html5-qrcode's cameraIdOrConfig argument only accepts a plain camera
     // id string or a single-key constraint object — it rejects anything
     // else outright. Extra constraints (resolution) go in the separate
-    // videoConstraints field of the scan config instead.
-    const cameraIdOrConfig = backCameraId || { facingMode: 'environment' };
+    // videoConstraints field of the scan config, but it's unclear whether
+    // that field merges with or replaces the cameraIdOrConfig-derived
+    // constraint, so the same deviceId/facingMode is duplicated into both
+    // to guarantee the correct physical camera either way.
+    const cameraIdOrConfig = backCamera ? backCamera.id : { facingMode: 'environment' };
+    const videoConstraints = backCamera
+      ? { deviceId: { exact: backCamera.id }, width: { ideal: 1920 }, height: { ideal: 1080 } }
+      : { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } };
     bcFrameCount = 0;
     bcLastFrameErr = '';
     bcDebugAppend('calling scanner.start()...');
@@ -1280,7 +1286,7 @@
         {
           fps: 10,
           qrbox: { width: 260, height: 160 },
-          videoConstraints: { width: { ideal: 1920 }, height: { ideal: 1080 } },
+          videoConstraints: videoConstraints,
         },
         function(decodedText){
           stopBarcodeCamera();
