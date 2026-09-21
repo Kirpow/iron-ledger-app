@@ -15,6 +15,18 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script>
+  // Applied here (before the stylesheet below) rather than in the main
+  // script at the bottom of the page, so a saved theme choice takes effect
+  // before first paint instead of flashing the default theme first.
+  (function(){
+    try {
+      var raw = localStorage.getItem('il_theme');
+      var t = raw ? JSON.parse(raw) : null;
+      if(t) document.documentElement.setAttribute('data-theme', t);
+    } catch(e){}
+  })();
+</script>
 <style>
   :root {
     --bg: #17191a;
@@ -55,8 +67,11 @@
     --rust-dim: #f0cbb8;
     --sage-dim: #d6e0cd;
   }
+  /* Only follows the OS when no theme has been explicitly picked (no
+     data-theme attribute at all) — an explicit choice, Halloween included,
+     always wins regardless of system light/dark setting. */
   @media (prefers-color-scheme: light) {
-    :root:not([data-theme="dark"]) {
+    :root:not([data-theme]) {
       --bg: #f2f0ea;
       --panel: #ffffff;
       --panel-2: #ece9e1;
@@ -70,6 +85,31 @@
       --rust-dim: #f0cbb8;
       --sage-dim: #d6e0cd;
     }
+  }
+
+  /* Halloween — pumpkin orange + toxic green + ghost teal on a deep purple
+     void, with bubblier corners for a cartoonish feel. Seasonal themes live
+     here as their own :root[data-theme="x"] block, same pattern. */
+  :root[data-theme="halloween"] {
+    --bg: #150f22;
+    --panel: #221733;
+    --panel-2: #2c1e40;
+    --panel-3: #362849;
+    --text: #f5ecd8;
+    --text-dim: #c3aed6;
+    --text-faint: #8a76a3;
+    --border: #4a3466;
+    --brass: #ff9736;
+    --brass-dim: #59320f;
+    --steel: #3fd6c9;
+    --steel-dim: #123f3a;
+    --rust: #ff4d5e;
+    --rust-dim: #5c141d;
+    --sage: #7bdc5a;
+    --sage-dim: #1f4a18;
+    --good: #7bdc5a;
+    --radius-s: 6px;
+    --radius-m: 12px;
   }
   * { box-sizing: border-box; }
   html, body {
@@ -774,7 +814,14 @@
 
   <!-- SETTINGS -->
   <section class="view" id="view-settings">
-    <div class="sec-head" style="margin-top:0;"><h3>Your targets</h3></div>
+    <div class="sec-head" style="margin-top:0;"><h3>Appearance</h3></div>
+    <div class="settings-card">
+      <h4>Theme</h4>
+      <div class="filter-row" id="themePicker" style="margin-bottom:0;"></div>
+      <div class="note" style="margin-top:10px;">"Auto" follows your phone or browser's light/dark setting. More seasonal themes are planned — Halloween's the first.</div>
+    </div>
+
+    <div class="sec-head"><h3>Your targets</h3></div>
     <div class="settings-card">
       <h4>About you</h4>
       <div class="row2">
@@ -957,6 +1004,13 @@
   </div>
 </nav>
 
+<!-- Near-silent looping audio, started alongside a lift session. iOS
+     more reliably keeps a tab (and its timers) alive in the background
+     when a real <audio> element is actively playing, which is what makes
+     the rest-timer chime able to fire while the screen is locked. This is
+     unofficial/undocumented Safari behavior, not a guaranteed API. -->
+<audio id="keepAliveAudio" loop playsinline style="display:none" src="data:audio/wav;base64,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"></audio>
+
 <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2@1.8.4/dist/quagga.min.js"></script>
 <script>
 (function(){
@@ -971,6 +1025,50 @@
     try { localStorage.setItem(key, JSON.stringify(val)); return true; }
     catch(e){ return false; }
   }
+
+  // ---------- theme ----------
+  // null means "Auto" — no data-theme attribute at all, so the OS
+  // light/dark media query in the stylesheet takes over (see the CSS
+  // comment by that block). An explicit choice always wins over the OS.
+  // The actual attribute is already applied by the inline script in
+  // <head> before first paint; this just keeps the picker UI and the
+  // theme-color meta tag (browser chrome color on Android/desktop) synced.
+  const THEMES = [
+    { key:null, label:'Auto' },
+    { key:'light', label:'Light' },
+    { key:'dark', label:'Dark' },
+    { key:'halloween', label:'🎃 Halloween' },
+  ];
+  const THEME_BG = { light:'#f2f0ea', dark:'#17191a', halloween:'#150f22' };
+  function getTheme(){ return safeGet('il_theme', null); }
+  function applyTheme(key){
+    if(key) document.documentElement.setAttribute('data-theme', key);
+    else document.documentElement.removeAttribute('data-theme');
+    const metaTheme = document.querySelector('meta[name="theme-color"]');
+    if(metaTheme){
+      if(key) metaTheme.content = THEME_BG[key];
+      else metaTheme.content = window.matchMedia('(prefers-color-scheme: light)').matches ? THEME_BG.light : THEME_BG.dark;
+    }
+  }
+  function renderThemePicker(){
+    const wrap = document.getElementById('themePicker');
+    if(!wrap) return;
+    const current = getTheme();
+    wrap.innerHTML = '';
+    THEMES.forEach(t => {
+      const chip = document.createElement('button');
+      chip.className = 'chip' + (t.key === current ? ' active' : '');
+      chip.textContent = t.label;
+      chip.addEventListener('click', () => {
+        safeSet('il_theme', t.key);
+        applyTheme(t.key);
+        renderThemePicker();
+      });
+      wrap.appendChild(chip);
+    });
+  }
+  applyTheme(getTheme());
+  renderThemePicker();
 
   // Native confirm()/prompt() are unreliable inside a sandboxed artifact
   // iframe (can silently no-op), so use an in-page modal instead.
@@ -3532,23 +3630,48 @@
     if(!restAudioCtx) restAudioCtx = new AC();
     if(restAudioCtx.state === 'suspended') restAudioCtx.resume();
   }
+
+  // Best-effort: keep the tab counted as "playing audio" for the whole
+  // session so iOS is less likely to fully suspend it (and its timers)
+  // when the screen locks or the app backgrounds — which is also what lets
+  // the chime actually be heard at that moment instead of silently missing
+  // it. This leans on undocumented Safari behavior (real <audio> elements
+  // get more background leniency than raw Web Audio nodes), not a
+  // guaranteed API, and may show a "Now Playing" control on the lock
+  // screen while a workout is active — that's expected, not a bug.
+  function startKeepAliveAudio(){
+    const el = document.getElementById('keepAliveAudio');
+    if(el) el.play().catch(function(){});
+  }
+  function stopKeepAliveAudio(){
+    const el = document.getElementById('keepAliveAudio');
+    if(el){ el.pause(); el.currentTime = 0; }
+  }
+
+  // Three short bell-like notes in quick succession — a fundamental plus a
+  // quiet high overtone per note, with a longer decay than a flat beep so
+  // it actually reads as a chime instead of a beep, and the notes ring
+  // into each other slightly like a real bell.
+  function playChimeNote(ctx, startTime){
+    [{ freq: 1046.5, gain: 0.32 }, { freq: 2103.0, gain: 0.10 }].forEach(function(p){
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = p.freq;
+      gain.gain.setValueAtTime(0.0001, startTime);
+      gain.gain.exponentialRampToValueAtTime(p.gain, startTime + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.5);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(startTime);
+      osc.stop(startTime + 0.52);
+    });
+  }
   function playRestChime(){
     if(!chimeEnabled || !restAudioCtx) return;
     const ctx = restAudioCtx;
     const now = ctx.currentTime;
-    [0, 0.32].forEach(function(offset){
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = 'sine';
-      osc.frequency.value = 880;
-      gain.gain.setValueAtTime(0.0001, now + offset);
-      gain.gain.exponentialRampToValueAtTime(0.35, now + offset + 0.02);
-      gain.gain.exponentialRampToValueAtTime(0.0001, now + offset + 0.28);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start(now + offset);
-      osc.stop(now + offset + 0.3);
-    });
+    [0, 0.4, 0.8].forEach(function(offset){ playChimeNote(ctx, now + offset); });
   }
   function notifyRestDone(){
     if(navigator.vibrate) navigator.vibrate([200, 100, 200]);
@@ -3711,6 +3834,7 @@
   document.getElementById('toggleSetBtn').addEventListener('click', function(){
     if(sessionState === 'idle'){
       unlockRestAudio(); // must happen inside this tap's gesture for iOS to allow audio later
+      startKeepAliveAudio();
       sessionState = 'lifting';
       sessionStartTime = Date.now();
       phaseStartTime = Date.now();
@@ -3746,6 +3870,7 @@
   document.getElementById('pauseWorkoutBtn').addEventListener('click', function(){
     if(sessionState === 'paused'){
       unlockRestAudio(); // iOS can suspend the AudioContext while backgrounded/locked — resume it on this tap
+      startKeepAliveAudio();
       const now = Date.now();
       totalPausedMs += now - pausedAt;
       pausedAt = null;
@@ -3762,6 +3887,7 @@
       pausedAt = Date.now();
       sessionState = 'paused';
       stopTicking();
+      stopKeepAliveAudio();
     }
     renderTimerButtons();
   });
@@ -3769,6 +3895,7 @@
   document.getElementById('endWorkoutBtn').addEventListener('click', function(){
     if(sessionState === 'idle') return;
     stopTicking();
+    stopKeepAliveAudio();
     const now = Date.now();
     if(sessionState === 'lifting' || sessionState === 'resting'){
       const elapsed = (now - phaseStartTime) / 1000;
@@ -4169,7 +4296,7 @@
   setupSectionToggle('toggleMeasureBtn', 'measureBody');
   setupSectionToggle('togglePhotosBtn', 'photosBody');
   setupSectionToggle('toggleTrendsBtn', 'trendsBody');
-  setupSectionToggle('toggleRecipesBtn', 'recipesBody', false);
+  setupSectionToggle('toggleRecipesBtn', 'recipesBody');
   setupSectionToggle('toggleBarcodeBtn', 'barcodeBody');
   setupSectionToggle('toggleSpoonacularBtn', 'spoonacularBody');
 
