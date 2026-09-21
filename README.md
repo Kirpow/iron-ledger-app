@@ -78,13 +78,6 @@ native app. Uninstalling the app removes its icon but the underlying
 browser data may persist until you clear site data for it — same as any
 other installed PWA.
 
-## Want a real native desktop app instead?
-
-See **`DESKTOP_APP_TASK.md`** in this folder — it's written as a
-ready-to-hand-off task for Claude Code, covering wrapping this app with
-Tauri or Electron into a proper `.exe`/`.dmg` installer with its own
-icon and window.
-
 ## If you outgrow this
 
 If you eventually want a real native app (App Store / Play Store
