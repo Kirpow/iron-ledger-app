@@ -78,11 +78,4 @@ native app. Uninstalling the app removes its icon but the underlying
 browser data may persist until you clear site data for it — same as any
 other installed PWA.
 
-## If you outgrow this
 
-If you eventually want a real native app (App Store / Play Store
-presence, background notifications, Apple Health / Google Fit
-integration, syncing across devices), the natural next step is wrapping
-this same `index.html` with **Capacitor**, which needs Xcode (Mac, for
-iOS) and/or Android Studio (any OS, for Android). Ask and I can put
-together that starter project too.
