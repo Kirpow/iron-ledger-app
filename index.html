@@ -418,6 +418,7 @@
   .bc-reader { width: 100%; min-height: 200px; background: var(--panel-2); border-radius: var(--radius-s); overflow: hidden; }
   .bc-status { font-size: 12.5px; color: var(--text-dim); margin-top: 10px; line-height: 1.5; }
   .bc-status.warn { color: var(--rust); }
+  .bc-debug { font-family: monospace; font-size: 10px; color: var(--text-dim); background: var(--panel-2); border-radius: var(--radius-s); margin-top: 8px; padding: 6px; max-height: 140px; overflow-y: auto; white-space: pre-wrap; word-break: break-all; }
   .si-buy { background: none; border: 1px solid var(--border); color: var(--sage); cursor: pointer; font-size: 13px; padding: 4px 8px; border-radius: var(--radius-s); line-height: 1; }
   .si-buy:hover { border-color: var(--sage); }
 </style>
@@ -804,6 +805,7 @@
     <div id="bcStepScan">
       <div id="bcReader" class="bc-reader"></div>
       <div class="bc-status" id="bcStatus"></div>
+      <div class="bc-debug" id="bcDebugLog"></div>
       <form id="bcManualForm" class="field-row" style="margin-top:10px;">
         <div class="field"><input type="text" inputmode="numeric" id="bcManualInput" placeholder="or type the barcode number"></div>
         <button class="btn small" type="submit">Look up</button>
@@ -1128,6 +1130,8 @@
   let bcLastProduct = null;
   let bcLastBarcode = null;
   let bcSearchSource = 'off';
+  let bcFrameCount = 0;
+  let bcLastFrameErr = '';
 
   function bcSetStatus(msg, isWarn){
     const el = document.getElementById('bcStatus');
@@ -1177,35 +1181,121 @@
     bcLastBarcode = null;
   }
 
-  function startBarcodeCamera(){
+  // iPhones with multiple rear lenses (11 and newer) often hand a plain
+  // { facingMode: 'environment' } request to the ultra-wide lens, which
+  // can't focus close enough to read a barcode held at a normal distance —
+  // the preview looks fine but nothing ever decodes. Picking the actual
+  // "Back Camera" (main wide lens) by its device label, when Safari
+  // exposes labels, avoids that. Falls back to facingMode when it can't.
+  async function pickBackCameraId(){
+    try {
+      const cameras = await Html5Qrcode.getCameras();
+      if(!cameras || !cameras.length) return null;
+      const byLabel = function(re){ return cameras.find(function(c){ return re.test(c.label || ''); }); };
+      const plainBack = byLabel(/back camera$/i) || byLabel(/^back camera/i);
+      if(plainBack) return plainBack.id;
+      const anyBackNotWide = byLabel(/back/i) ? cameras.find(function(c){
+        return /back/i.test(c.label || '') && !/ultra\s*wide|telephoto/i.test(c.label || '');
+      }) : null;
+      if(anyBackNotWide) return anyBackNotWide.id;
+      return null;
+    } catch(e){
+      return null;
+    }
+  }
+
+  // TEMP DEBUG: on-screen log panel + console capture, so we can see what
+  // html5-qrcode is actually doing on a phone with no dev tools attached.
+  let bcConsolePatched = false;
+  const bcOrigConsole = {};
+  function bcDebugAppend(msg){
+    const el = document.getElementById('bcDebugLog');
+    if(!el) return;
+    el.textContent += msg + '\n';
+    el.scrollTop = el.scrollHeight;
+  }
+  function bcPatchConsole(){
+    if(bcConsolePatched) return;
+    bcConsolePatched = true;
+    ['log', 'warn', 'error'].forEach(function(level){
+      bcOrigConsole[level] = console[level];
+      console[level] = function(){
+        const args = Array.prototype.slice.call(arguments);
+        try {
+          bcDebugAppend('[' + level + '] ' + args.map(function(a){
+            return (typeof a === 'object') ? JSON.stringify(a) : String(a);
+          }).join(' ').slice(0, 300));
+        } catch(e){ /* ignore */ }
+        bcOrigConsole[level].apply(console, args);
+      };
+    });
+  }
+  function bcUnpatchConsole(){
+    if(!bcConsolePatched) return;
+    bcConsolePatched = false;
+    ['log', 'warn', 'error'].forEach(function(level){
+      if(bcOrigConsole[level]) console[level] = bcOrigConsole[level];
+    });
+  }
+
+  async function startBarcodeCamera(){
+    const dbg = document.getElementById('bcDebugLog');
+    if(dbg) dbg.textContent = '';
     if(typeof Html5Qrcode === 'undefined'){
       bcSetStatus('The camera scanner needs an internet connection to load the first time. You can still type the barcode number below.', true);
       return;
     }
     if(bcActive) return;
+    bcPatchConsole();
+    bcDebugAppend('creating Html5Qrcode instance...');
     const scanner = new Html5Qrcode('bcReader', {
       formatsToSupport: [
         Html5QrcodeSupportedFormats.EAN_13,
         Html5QrcodeSupportedFormats.EAN_8,
         Html5QrcodeSupportedFormats.UPC_A,
         Html5QrcodeSupportedFormats.UPC_E,
+        Html5QrcodeSupportedFormats.CODE_128,
+        Html5QrcodeSupportedFormats.CODE_39,
+        Html5QrcodeSupportedFormats.ITF,
       ],
-      verbose: false,
+      verbose: true,
     });
     bcInstance = scanner;
     bcActive = true;
-    scanner.start(
-      { facingMode: 'environment' },
-      { fps: 10, qrbox: { width: 260, height: 160 } },
-      function(decodedText){
-        stopBarcodeCamera();
-        handleScannedBarcode(decodedText);
-      },
-      function(){ /* per-frame decode misses are normal while aiming */ }
-    ).catch(function(){
+    bcDebugAppend('enumerating cameras...');
+    const backCameraId = await pickBackCameraId();
+    bcDebugAppend('picked camera: ' + (backCameraId || '(facingMode fallback)'));
+    if(!bcActive || bcInstance !== scanner) return; // modal was closed while we were enumerating
+    const cameraConfig = backCameraId
+      ? { deviceId: { exact: backCameraId } }
+      : { facingMode: 'environment' };
+    cameraConfig.width = { ideal: 1920 };
+    cameraConfig.height = { ideal: 1080 };
+    bcFrameCount = 0;
+    bcLastFrameErr = '';
+    bcDebugAppend('calling scanner.start()...');
+    try {
+      await scanner.start(
+        cameraConfig,
+        { fps: 10, qrbox: { width: 260, height: 160 } },
+        function(decodedText){
+          stopBarcodeCamera();
+          handleScannedBarcode(decodedText);
+        },
+        function(err){
+          bcFrameCount++;
+          bcLastFrameErr = (err && err.message) ? err.message : String(err || '');
+          if(bcFrameCount === 1 || bcFrameCount % 15 === 0){
+            bcSetStatus('Scanning… ' + bcFrameCount + ' frames checked. Last: ' + bcLastFrameErr.slice(0, 80));
+          }
+        }
+      );
+      bcDebugAppend('scanner.start() RESOLVED — scan loop should now be running');
+    } catch(err){
       bcActive = false;
-      bcSetStatus('Couldn’t access the camera — check camera permissions, or type the barcode number below.', true);
-    });
+      bcDebugAppend('scanner.start() REJECTED: ' + (err && err.message ? err.message : err));
+      bcSetStatus('Couldn’t access the camera (' + (err && err.message ? err.message : err) + ') — check camera permissions, or type the barcode number below.', true);
+    }
   }
 
   function stopBarcodeCamera(){
@@ -1215,6 +1305,7 @@
     }
     bcActive = false;
     bcInstance = null;
+    bcUnpatchConsole();
   }
 
   // Open Food Facts' servers occasionally answer a valid request with a
