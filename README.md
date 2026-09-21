@@ -46,7 +46,7 @@ the same way.)
 
 ## Install it on your computer
 
-Open the app in Chrome or Edge — look for an install icon (a little
+Open the app in Chrome or Edge, look for an install icon (a little
 monitor with a down arrow) in the address bar, or the **⋮** menu →
 **Install Iron Ledger**. It becomes a real windowed app with its own
 icon in your dock/taskbar, separate from your browser.
@@ -58,9 +58,9 @@ running on your computer. For something that's always available (so you
 can install it once and forget about the terminal), put these same
 files on any static host:
 
-- **Netlify** or **Vercel** — drag-and-drop the folder in their web
+- **Netlify** or **Vercel** - drag and drop the folder in their web
   dashboard, get a URL in under a minute, free for this kind of use.
-- **GitHub Pages** — push this folder to a repo, turn on Pages in
+- **GitHub Pages** - push this folder to a repo, turn on Pages in
   settings.
 
 Whichever you pick, install the app from *that* URL instead of
@@ -69,11 +69,11 @@ close the terminal.
 
 ## Data & privacy
 
-Everything still lives only on your device — nothing in this app talks
+Everything lives only on your device — nothing in this app talks
 to a server. Installing it as a PWA doesn't change that; it's still the
 exact same local storage and IndexedDB, just wrapped so it feels like a
 native app. Uninstalling the app removes its icon but the underlying
-browser data may persist until you clear site data for it — same as any
+browser data may persist until you clear site data for it, same as any
 other installed PWA.
 
 
