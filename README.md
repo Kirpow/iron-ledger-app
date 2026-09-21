@@ -1,21 +1,19 @@
 # Iron Ledger — installable app version
 
-This is the same app you've been using, packaged as a proper installable
-Progressive Web App (PWA): it can sit on your phone's home screen or run
+This is a installable Progressive Web App (PWA): it can sit on your phone's home screen or run
 as its own windowed app on your computer, and it keeps working without
 an internet connection once it's loaded once.
 
 What changed from the single-file version:
 - **Progress photos now use IndexedDB** instead of `localStorage`. This
-  removes the old ~5–10MB ceiling that mostly ate into your photo storage
+  removes the old ~5–10MB ceiling that mostly ate into photo storage
   — the practical limit is now hundreds of MB to a few GB, depending on
-  your device and how full its disk is. Everything else (food log,
+  the device and how full its disk is. Everything else (food log,
   workouts, weight, measurements, pantry, shopping list) still uses
-  `localStorage`, which is plenty for that kind of small text data.
+  `localStorage`, which is plenty for this kind of small text data.
 - Added `manifest.json`, `service-worker.js`, and app icons so the app is
   installable and works offline.
 
-Nothing about how you *use* the app changed — same tabs, same features.
 
 ## Run it locally
 
