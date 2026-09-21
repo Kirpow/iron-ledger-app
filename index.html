@@ -600,9 +600,8 @@
         <div class="tp-target" id="phaseTarget"></div>
       </div>
       <div class="timer-actions">
-        <button class="btn" id="startWorkoutBtn">Start workout</button>
-        <button class="btn" id="finishSetBtn" style="display:none;">Finished set</button>
-        <button class="btn" id="logSetBtn" style="display:none;">Log it</button>
+        <button class="btn" id="toggleSetBtn">Start set</button>
+        <button class="btn ghost" id="pauseWorkoutBtn" style="display:none;">Pause workout</button>
       </div>
       <button class="btn ghost small" id="endWorkoutBtn" style="display:none; margin-top:8px; width:100%;">Finish working out for the day</button>
     </div>
@@ -2680,10 +2679,13 @@
   }
 
   let timerExerciseIdx = 0;
-  let sessionState = 'idle'; // idle | lifting | resting
+  let sessionState = 'idle'; // idle | lifting | resting | paused
   let sessionStartTime = null;
   let phaseStartTime = null;
   let sessionTotals = { liftingSeconds: 0, restingSeconds: 0 };
+  let totalPausedMs = 0;
+  let pausedAt = null;
+  let pausedFromState = null;
   let timerTickHandle = null;
 
   function currentTimerExercise(){
@@ -2698,7 +2700,7 @@
   function renderTimerExerciseSelect(){
     const day = program.find(d => d.key === activeDay);
     const sel = document.getElementById('timerExerciseSelect');
-    const startBtn = document.getElementById('startWorkoutBtn');
+    const startBtn = document.getElementById('toggleSetBtn');
     if(!day || day.exercises.length === 0){
       sel.innerHTML = '<option>No exercises yet</option>';
       sel.disabled = true;
@@ -2726,19 +2728,23 @@
       el.textContent = 'Target rest: ' + fmtClock(std.restSec) + ' — ' + std.note;
     } else if(sessionState === 'lifting'){
       el.textContent = 'Typical set time: ~' + fmtClock(std.setSec) + ' · rest after: ' + fmtClock(std.restSec);
+    } else if(sessionState === 'paused'){
+      el.textContent = 'Workout paused — tap Resume workout to continue.';
     } else {
       el.textContent = std.note;
     }
   }
 
   function renderTimerButtons(){
-    document.getElementById('startWorkoutBtn').style.display = sessionState === 'idle' ? 'inline-flex' : 'none';
-    document.getElementById('finishSetBtn').style.display = sessionState === 'lifting' ? 'inline-flex' : 'none';
-    document.getElementById('logSetBtn').style.display = sessionState === 'resting' ? 'inline-flex' : 'none';
+    document.getElementById('toggleSetBtn').style.display = sessionState === 'paused' ? 'none' : 'inline-flex';
+    document.getElementById('toggleSetBtn').textContent = sessionState === 'lifting' ? 'Finish set' : 'Start set';
+    document.getElementById('pauseWorkoutBtn').style.display = sessionState === 'idle' ? 'none' : 'inline-flex';
+    document.getElementById('pauseWorkoutBtn').textContent = sessionState === 'paused' ? 'Resume workout' : 'Pause workout';
     document.getElementById('endWorkoutBtn').style.display = sessionState === 'idle' ? 'none' : 'block';
     document.getElementById('phaseLabel').textContent =
       sessionState === 'idle' ? 'Ready to start' :
-      sessionState === 'lifting' ? 'Lifting — working set' : 'Resting — cool down';
+      sessionState === 'lifting' ? 'Lifting — working set' :
+      sessionState === 'resting' ? 'Resting — cool down' : 'Paused';
     if(sessionState === 'idle'){
       document.getElementById('sessionClock').textContent = '00:00';
       document.getElementById('phaseClock').textContent = '00:00';
@@ -2748,9 +2754,9 @@
   }
 
   function tick(){
-    if(sessionState === 'idle') return;
+    if(sessionState === 'idle' || sessionState === 'paused') return;
     const now = Date.now();
-    document.getElementById('sessionClock').textContent = fmtClock((now - sessionStartTime) / 1000);
+    document.getElementById('sessionClock').textContent = fmtClock((now - sessionStartTime - totalPausedMs) / 1000);
     const phaseSec = (now - phaseStartTime) / 1000;
     const clockEl = document.getElementById('phaseClock');
     clockEl.textContent = fmtClock(phaseSec);
@@ -2800,41 +2806,66 @@
     return new Date(y, m-1, d).toLocaleDateString(undefined, { month:'short', day:'numeric' });
   }
 
-  document.getElementById('startWorkoutBtn').addEventListener('click', function(){
-    sessionState = 'lifting';
-    sessionStartTime = Date.now();
-    phaseStartTime = Date.now();
-    sessionTotals = { liftingSeconds: 0, restingSeconds: 0 };
-    startTicking();
-    renderTimerButtons();
-  });
-
-  document.getElementById('finishSetBtn').addEventListener('click', function(){
-    sessionTotals.liftingSeconds += (Date.now() - phaseStartTime) / 1000;
-    sessionState = 'resting';
-    phaseStartTime = Date.now();
-    renderTimerButtons();
-  });
-
-  document.getElementById('logSetBtn').addEventListener('click', function(){
-    sessionTotals.restingSeconds += (Date.now() - phaseStartTime) / 1000;
-    // Mark the exercise just rested from as done (keeping whatever weight
-    // was already typed in for it — the weight input auto-saves on every
-    // keystroke), then roll straight into the next exercise in today's
-    // workout instead of making the lifter re-pick it from the dropdown.
-    const day = program.find(d => d.key === activeDay);
-    const ex = day && day.exercises[timerExerciseIdx];
-    if(day && ex){
-      const exId = day.key + '_' + timerExerciseIdx + '_' + ex.id;
-      const log = getWorkoutLog();
-      const existing = log[exId] || { weight: '', done: false };
-      log[exId] = { weight: existing.weight, done: true };
-      setWorkoutLog(log);
+  // One button doing double duty as Start/Finish set, instead of separate
+  // buttons that only ever show one at a time:
+  //   idle    -> tap starts the whole session, lifting the 1st exercise.
+  //   lifting -> tap finishes the set: logs the exercise done (keeping
+  //              its already-typed weight) and rolls into the next
+  //              exercise, then waits in "resting" for the next tap.
+  //   resting -> tap starts lifting the exercise just rolled into.
+  document.getElementById('toggleSetBtn').addEventListener('click', function(){
+    if(sessionState === 'idle'){
+      sessionState = 'lifting';
+      sessionStartTime = Date.now();
+      phaseStartTime = Date.now();
+      sessionTotals = { liftingSeconds: 0, restingSeconds: 0 };
+      totalPausedMs = 0;
+      startTicking();
+    } else if(sessionState === 'lifting'){
+      sessionTotals.liftingSeconds += (Date.now() - phaseStartTime) / 1000;
+      const day = program.find(d => d.key === activeDay);
+      const ex = day && day.exercises[timerExerciseIdx];
+      if(day && ex){
+        const exId = day.key + '_' + timerExerciseIdx + '_' + ex.id;
+        const log = getWorkoutLog();
+        const existing = log[exId] || { weight: '', done: false };
+        log[exId] = { weight: existing.weight, done: true };
+        setWorkoutLog(log);
+      }
+      timerExerciseIdx++;
+      sessionState = 'resting';
+      phaseStartTime = Date.now();
+      renderExercises();
+    } else if(sessionState === 'resting'){
+      sessionTotals.restingSeconds += (Date.now() - phaseStartTime) / 1000;
+      sessionState = 'lifting';
+      phaseStartTime = Date.now();
     }
-    timerExerciseIdx++;
-    sessionState = 'lifting';
-    phaseStartTime = Date.now();
-    renderExercises();
+    renderTimerButtons();
+  });
+
+  // Pauses the whole session clock (a real interruption — phone call,
+  // equipment's busy — not the between-set rest timer), excluding the
+  // paused duration from both the session total and whichever phase was
+  // running when paused.
+  document.getElementById('pauseWorkoutBtn').addEventListener('click', function(){
+    if(sessionState === 'paused'){
+      const now = Date.now();
+      totalPausedMs += now - pausedAt;
+      pausedAt = null;
+      sessionState = pausedFromState;
+      pausedFromState = null;
+      phaseStartTime = now;
+      startTicking();
+    } else if(sessionState === 'lifting' || sessionState === 'resting'){
+      const elapsed = (Date.now() - phaseStartTime) / 1000;
+      if(sessionState === 'lifting') sessionTotals.liftingSeconds += elapsed;
+      else sessionTotals.restingSeconds += elapsed;
+      pausedFromState = sessionState;
+      pausedAt = Date.now();
+      sessionState = 'paused';
+      stopTicking();
+    }
     renderTimerButtons();
   });
 
@@ -2842,16 +2873,24 @@
     if(sessionState === 'idle') return;
     stopTicking();
     const now = Date.now();
-    const elapsed = (now - phaseStartTime) / 1000;
-    if(sessionState === 'lifting') sessionTotals.liftingSeconds += elapsed;
-    else if(sessionState === 'resting') sessionTotals.restingSeconds += elapsed;
-    const totalSeconds = Math.round((now - sessionStartTime) / 1000);
+    if(sessionState === 'lifting' || sessionState === 'resting'){
+      const elapsed = (now - phaseStartTime) / 1000;
+      if(sessionState === 'lifting') sessionTotals.liftingSeconds += elapsed;
+      else sessionTotals.restingSeconds += elapsed;
+    }
+    // 'paused' already folded its elapsed phase time into sessionTotals
+    // when the pause began; just account for paused time up to now too.
+    const pausedMs = sessionState === 'paused' ? totalPausedMs + (now - pausedAt) : totalPausedMs;
+    const totalSeconds = Math.round((now - sessionStartTime - pausedMs) / 1000);
     const day = program.find(d => d.key === activeDay);
     const calories = estimateBurnFromMinutes(day, totalSeconds / 60);
     saveSessionToLog(todayStr(), totalSeconds, Math.round(sessionTotals.liftingSeconds), Math.round(sessionTotals.restingSeconds), calories, activeDay);
     sessionState = 'idle';
     sessionStartTime = null;
     phaseStartTime = null;
+    pausedAt = null;
+    pausedFromState = null;
+    totalPausedMs = 0;
     renderTimerButtons();
     renderDayTabs();
     renderTimeChart();
