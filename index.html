@@ -1238,6 +1238,14 @@
     });
   }
 
+  // A single Quagga "detection" is often a misread — e.g. its EAN-8 reader
+  // matching a noisy sub-segment of a real, longer UPC-A/EAN-13 code. A
+  // genuine steady read reports the same value repeatedly; noise doesn't.
+  // Requiring the same code a few frames running filters that out cheaply.
+  const BC_CONFIRM_THRESHOLD = 3;
+  let bcPendingCode = null;
+  let bcPendingCount = 0;
+
   // Quagga2's onProcessed/onDetected are global listeners on the Quagga
   // singleton (not per-instance), so they're attached exactly once here
   // and simply stay quiet whenever Quagga.stop() has been called — no
@@ -1249,6 +1257,7 @@
     Quagga.onProcessed(function(){
       if(!bcActive) return;
       bcFrameCount++;
+      if(bcPendingCount > 0) return; // let the confirmation-progress message stand
       if(bcFrameCount === 1 || bcFrameCount % 15 === 0){
         bcSetStatus('Scanning… ' + bcFrameCount + ' frames checked.');
       }
@@ -1257,7 +1266,18 @@
       if(!bcActive) return;
       const code = result && result.codeResult && result.codeResult.code;
       if(!code) return;
-      bcDebugAppend('DETECTED: ' + code);
+      if(code === bcPendingCode){
+        bcPendingCount++;
+      } else {
+        bcPendingCode = code;
+        bcPendingCount = 1;
+      }
+      bcDebugAppend('candidate ' + code + ' (' + bcPendingCount + '/' + BC_CONFIRM_THRESHOLD + ')');
+      if(bcPendingCount < BC_CONFIRM_THRESHOLD) {
+        bcSetStatus('Possible code found, confirming… (' + bcPendingCount + '/' + BC_CONFIRM_THRESHOLD + ')');
+        return;
+      }
+      bcDebugAppend('CONFIRMED: ' + code);
       stopBarcodeCamera();
       handleScannedBarcode(code);
     });
@@ -1274,6 +1294,8 @@
     bcPatchConsole();
     bcActive = true;
     bcFrameCount = 0;
+    bcPendingCode = null;
+    bcPendingCount = 0;
     bcDebugAppend('picking back camera...');
     const backCamera = await pickBackCamera();
     bcDebugAppend('picked camera: ' + (backCamera ? (backCamera.label + ' [' + backCamera.id + ']') : '(none found — facingMode fallback)'));
