@@ -415,7 +415,8 @@
   .modal-actions .btn { flex: 1; }
 
   /* Barcode scanner */
-  .bc-reader { width: 100%; min-height: 200px; background: var(--panel-2); border-radius: var(--radius-s); overflow: hidden; }
+  .bc-reader { position: relative; width: 100%; min-height: 200px; background: var(--panel-2); border-radius: var(--radius-s); overflow: hidden; }
+  .bc-reader video, .bc-reader canvas { width: 100%; }
   .bc-status { font-size: 12.5px; color: var(--text-dim); margin-top: 10px; line-height: 1.5; }
   .bc-status.warn { color: var(--rust); }
   .bc-debug { font-family: monospace; font-size: 10px; color: var(--text-dim); background: var(--panel-2); border-radius: var(--radius-s); margin-top: 8px; padding: 6px; max-height: 140px; overflow-y: auto; white-space: pre-wrap; word-break: break-all; }
@@ -850,7 +851,7 @@
   </div>
 </nav>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2@1.8.4/dist/quagga.min.js"></script>
 <script>
 (function(){
   "use strict";
@@ -1124,14 +1125,12 @@
   // can of garbanzo beans came back as a different product entirely), so a
   // lookup never gets used silently — it always lands on a review step the
   // caller has to confirm, with a name-search or manual-entry way out.
-  let bcInstance = null;
   let bcActive = false;
   let bcHandlers = null; // { onUse(product), onManual() }
   let bcLastProduct = null;
   let bcLastBarcode = null;
   let bcSearchSource = 'off';
   let bcFrameCount = 0;
-  let bcLastFrameErr = '';
 
   function bcSetStatus(msg, isWarn){
     const el = document.getElementById('bcStatus');
@@ -1187,25 +1186,26 @@
   // the preview looks fine but nothing ever decodes. Picking the actual
   // "Back Camera" (main wide lens) by its device label, when Safari
   // exposes labels, avoids that. Falls back to facingMode when it can't.
-  async function pickBackCameraId(){
+  async function pickBackCamera(){
     try {
-      const cameras = await Html5Qrcode.getCameras();
-      if(!cameras || !cameras.length) return null;
+      const priming = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      priming.getTracks().forEach(function(t){ t.stop(); });
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const cameras = devices.filter(function(d){ return d.kind === 'videoinput'; });
+      if(!cameras.length) return null;
       const byLabel = function(re){ return cameras.find(function(c){ return re.test(c.label || ''); }); };
       const plainBack = byLabel(/back camera$/i) || byLabel(/^back camera/i);
-      if(plainBack) return plainBack;
-      const anyBackNotWide = byLabel(/back/i) ? cameras.find(function(c){
+      const pick = plainBack || cameras.find(function(c){
         return /back/i.test(c.label || '') && !/ultra\s*wide|telephoto/i.test(c.label || '');
-      }) : null;
-      if(anyBackNotWide) return anyBackNotWide;
-      return null;
+      });
+      return pick ? { id: pick.deviceId, label: pick.label } : null;
     } catch(e){
       return null;
     }
   }
 
   // TEMP DEBUG: on-screen log panel + console capture, so we can see what
-  // html5-qrcode is actually doing on a phone with no dev tools attached.
+  // the scanner is actually doing on a phone with no dev tools attached.
   let bcConsolePatched = false;
   const bcOrigConsole = {};
   function bcDebugAppend(msg){
@@ -1238,83 +1238,84 @@
     });
   }
 
+  // Quagga2's onProcessed/onDetected are global listeners on the Quagga
+  // singleton (not per-instance), so they're attached exactly once here
+  // and simply stay quiet whenever Quagga.stop() has been called — no
+  // per-open add/remove bookkeeping needed.
+  let bcQuaggaListenersAttached = false;
+  function bcAttachQuaggaListeners(){
+    if(bcQuaggaListenersAttached) return;
+    bcQuaggaListenersAttached = true;
+    Quagga.onProcessed(function(){
+      if(!bcActive) return;
+      bcFrameCount++;
+      if(bcFrameCount === 1 || bcFrameCount % 15 === 0){
+        bcSetStatus('Scanning… ' + bcFrameCount + ' frames checked.');
+      }
+    });
+    Quagga.onDetected(function(result){
+      if(!bcActive) return;
+      const code = result && result.codeResult && result.codeResult.code;
+      if(!code) return;
+      bcDebugAppend('DETECTED: ' + code);
+      stopBarcodeCamera();
+      handleScannedBarcode(code);
+    });
+  }
+
   async function startBarcodeCamera(){
     const dbg = document.getElementById('bcDebugLog');
     if(dbg) dbg.textContent = '';
-    if(typeof Html5Qrcode === 'undefined'){
+    if(typeof Quagga === 'undefined'){
       bcSetStatus('The camera scanner needs an internet connection to load the first time. You can still type the barcode number below.', true);
       return;
     }
     if(bcActive) return;
     bcPatchConsole();
-    bcDebugAppend('creating Html5Qrcode instance...');
-    const scanner = new Html5Qrcode('bcReader', {
-      formatsToSupport: [
-        Html5QrcodeSupportedFormats.EAN_13,
-        Html5QrcodeSupportedFormats.EAN_8,
-        Html5QrcodeSupportedFormats.UPC_A,
-        Html5QrcodeSupportedFormats.UPC_E,
-        Html5QrcodeSupportedFormats.CODE_128,
-        Html5QrcodeSupportedFormats.CODE_39,
-        Html5QrcodeSupportedFormats.ITF,
-      ],
-      verbose: true,
-    });
-    bcInstance = scanner;
     bcActive = true;
-    bcDebugAppend('enumerating cameras...');
-    const backCamera = await pickBackCameraId();
+    bcFrameCount = 0;
+    bcDebugAppend('picking back camera...');
+    const backCamera = await pickBackCamera();
     bcDebugAppend('picked camera: ' + (backCamera ? (backCamera.label + ' [' + backCamera.id + ']') : '(none found — facingMode fallback)'));
-    if(!bcActive || bcInstance !== scanner) return; // modal was closed while we were enumerating
-    // html5-qrcode's cameraIdOrConfig argument only accepts a plain camera
-    // id string or a single-key constraint object — it rejects anything
-    // else outright. Extra constraints (resolution) go in the separate
-    // videoConstraints field of the scan config, but it's unclear whether
-    // that field merges with or replaces the cameraIdOrConfig-derived
-    // constraint, so the same deviceId/facingMode is duplicated into both
-    // to guarantee the correct physical camera either way.
-    const cameraIdOrConfig = backCamera ? backCamera.id : { facingMode: 'environment' };
-    const videoConstraints = backCamera
+    if(!bcActive) return; // modal was closed while we were enumerating
+    const constraints = backCamera
       ? { deviceId: { exact: backCamera.id }, width: { ideal: 1920 }, height: { ideal: 1080 } }
       : { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } };
-    bcFrameCount = 0;
-    bcLastFrameErr = '';
-    bcDebugAppend('calling scanner.start()...');
-    try {
-      await scanner.start(
-        cameraIdOrConfig,
-        {
-          fps: 10,
-          qrbox: { width: 260, height: 160 },
-          videoConstraints: videoConstraints,
-        },
-        function(decodedText){
-          stopBarcodeCamera();
-          handleScannedBarcode(decodedText);
-        },
-        function(err){
-          bcFrameCount++;
-          bcLastFrameErr = (err && err.message) ? err.message : String(err || '');
-          if(bcFrameCount === 1 || bcFrameCount % 15 === 0){
-            bcSetStatus('Scanning… ' + bcFrameCount + ' frames checked. Last: ' + bcLastFrameErr.slice(0, 80));
-          }
-        }
-      );
-      bcDebugAppend('scanner.start() RESOLVED — scan loop should now be running');
-    } catch(err){
-      bcActive = false;
-      bcDebugAppend('scanner.start() REJECTED: ' + (err && err.message ? err.message : err));
-      bcSetStatus('Couldn’t access the camera (' + (err && err.message ? err.message : err) + ') — check camera permissions, or type the barcode number below.', true);
-    }
+    const readerEl = document.getElementById('bcReader');
+    readerEl.innerHTML = ''; // clear any leftover video/canvas from a previous run
+    bcDebugAppend('calling Quagga.init()...');
+    Quagga.init({
+      inputStream: {
+        type: 'LiveStream',
+        target: readerEl,
+        constraints: constraints,
+      },
+      locator: { patchSize: 'medium', halfSample: true },
+      numOfWorkers: 2,
+      decoder: {
+        readers: ['ean_reader', 'ean_8_reader', 'upc_reader', 'upc_e_reader', 'code_128_reader'],
+        multiple: false,
+      },
+      locate: true,
+    }, function(err){
+      if(err){
+        bcActive = false;
+        bcDebugAppend('Quagga.init() ERROR: ' + (err && err.message ? err.message : err));
+        bcSetStatus('Couldn’t access the camera (' + (err && err.message ? err.message : err) + ') — check camera permissions, or type the barcode number below.', true);
+        return;
+      }
+      bcDebugAppend('Quagga.init() OK — starting...');
+      bcAttachQuaggaListeners();
+      Quagga.start();
+      bcDebugAppend('Quagga.start() called — scan loop should now be running');
+    });
   }
 
   function stopBarcodeCamera(){
-    if(bcInstance && bcActive){
-      const inst = bcInstance;
-      inst.stop().then(function(){ inst.clear(); }).catch(function(){});
+    if(bcActive && typeof Quagga !== 'undefined'){
+      try { Quagga.stop(); } catch(e){ /* ignore */ }
     }
     bcActive = false;
-    bcInstance = null;
     bcUnpatchConsole();
   }
 
