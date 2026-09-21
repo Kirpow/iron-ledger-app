@@ -168,7 +168,7 @@
   .entry.workout-entry .cals { color: var(--rust); }
   .meal-section { margin-bottom: 18px; }
   .meal-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
-  .meal-name { font-family: 'Oswald', sans-serif; font-size: 14px; letter-spacing: 0.3px; color: var(--text); }
+  .meal-name { font-family: 'Oswald', sans-serif; font-size: 18px; font-weight: 600; letter-spacing: 0.3px; color: var(--brass); text-transform: uppercase; }
   .meal-sub { font-size: 11.5px; color: var(--text-faint); }
   .empty-note { color: var(--text-faint); font-size: 13.5px; padding: 18px 0; text-align: center; border: 1px dashed var(--border); border-radius: var(--radius-m); }
 
@@ -428,7 +428,6 @@
   .bc-reader video, .bc-reader canvas { position: absolute !important; top: 0; left: 0; width: 100% !important; height: 100% !important; object-fit: cover; }
   .bc-status { font-size: 12.5px; color: var(--text-dim); margin-top: 10px; line-height: 1.5; }
   .bc-status.warn { color: var(--rust); }
-  .bc-debug { font-family: monospace; font-size: 10px; color: var(--text-dim); background: var(--panel-2); border-radius: var(--radius-s); margin-top: 8px; padding: 6px; max-height: 140px; overflow-y: auto; white-space: pre-wrap; word-break: break-all; }
   .si-buy { background: none; border: 1px solid var(--border); color: var(--sage); cursor: pointer; font-size: 13px; padding: 4px 8px; border-radius: var(--radius-s); line-height: 1; }
   .si-buy:hover { border-color: var(--sage); }
 </style>
@@ -850,7 +849,6 @@
     <div id="bcStepScan">
       <div id="bcReader" class="bc-reader"></div>
       <div class="bc-status" id="bcStatus"></div>
-      <div class="bc-debug" id="bcDebugLog"></div>
       <form id="bcManualForm" class="field-row" style="margin-top:10px;">
         <div class="field"><input type="text" inputmode="numeric" id="bcManualInput" placeholder="or type the barcode number"></div>
         <button class="btn small" type="submit">Look up</button>
@@ -1391,40 +1389,6 @@
     }
   }
 
-  // TEMP DEBUG: on-screen log panel + console capture, so we can see what
-  // the scanner is actually doing on a phone with no dev tools attached.
-  let bcConsolePatched = false;
-  const bcOrigConsole = {};
-  function bcDebugAppend(msg){
-    const el = document.getElementById('bcDebugLog');
-    if(!el) return;
-    el.textContent += msg + '\n';
-    el.scrollTop = el.scrollHeight;
-  }
-  function bcPatchConsole(){
-    if(bcConsolePatched) return;
-    bcConsolePatched = true;
-    ['log', 'warn', 'error'].forEach(function(level){
-      bcOrigConsole[level] = console[level];
-      console[level] = function(){
-        const args = Array.prototype.slice.call(arguments);
-        try {
-          bcDebugAppend('[' + level + '] ' + args.map(function(a){
-            return (typeof a === 'object') ? JSON.stringify(a) : String(a);
-          }).join(' ').slice(0, 300));
-        } catch(e){ /* ignore */ }
-        bcOrigConsole[level].apply(console, args);
-      };
-    });
-  }
-  function bcUnpatchConsole(){
-    if(!bcConsolePatched) return;
-    bcConsolePatched = false;
-    ['log', 'warn', 'error'].forEach(function(level){
-      if(bcOrigConsole[level]) console[level] = bcOrigConsole[level];
-    });
-  }
-
   // A single Quagga "detection" is often a misread — e.g. its EAN-8 reader
   // matching a noisy sub-segment of a real, longer UPC-A/EAN-13 code. A
   // genuine steady read reports the same value repeatedly; noise doesn't.
@@ -1459,40 +1423,32 @@
         bcPendingCode = code;
         bcPendingCount = 1;
       }
-      bcDebugAppend('candidate ' + code + ' (' + bcPendingCount + '/' + BC_CONFIRM_THRESHOLD + ')');
       if(bcPendingCount < BC_CONFIRM_THRESHOLD) {
         bcSetStatus('Possible code found, confirming… (' + bcPendingCount + '/' + BC_CONFIRM_THRESHOLD + ')');
         return;
       }
-      bcDebugAppend('CONFIRMED: ' + code);
       stopBarcodeCamera();
       handleScannedBarcode(code);
     });
   }
 
   async function startBarcodeCamera(){
-    const dbg = document.getElementById('bcDebugLog');
-    if(dbg) dbg.textContent = '';
     if(typeof Quagga === 'undefined'){
       bcSetStatus('The camera scanner needs an internet connection to load the first time. You can still type the barcode number below.', true);
       return;
     }
     if(bcActive) return;
-    bcPatchConsole();
     bcActive = true;
     bcFrameCount = 0;
     bcPendingCode = null;
     bcPendingCount = 0;
-    bcDebugAppend('picking back camera...');
     const backCamera = await pickBackCamera();
-    bcDebugAppend('picked camera: ' + (backCamera ? (backCamera.label + ' [' + backCamera.id + ']') : '(none found — facingMode fallback)'));
     if(!bcActive) return; // modal was closed while we were enumerating
     const constraints = backCamera
       ? { deviceId: { exact: backCamera.id }, width: { ideal: 1920 }, height: { ideal: 1080 } }
       : { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } };
     const readerEl = document.getElementById('bcReader');
     readerEl.innerHTML = ''; // clear any leftover video/canvas from a previous run
-    bcDebugAppend('calling Quagga.init()...');
     Quagga.init({
       inputStream: {
         type: 'LiveStream',
@@ -1516,14 +1472,11 @@
     }, function(err){
       if(err){
         bcActive = false;
-        bcDebugAppend('Quagga.init() ERROR: ' + (err && err.message ? err.message : err));
         bcSetStatus('Couldn’t access the camera (' + (err && err.message ? err.message : err) + ') — check camera permissions, or type the barcode number below.', true);
         return;
       }
-      bcDebugAppend('Quagga.init() OK — starting...');
       bcAttachQuaggaListeners();
       Quagga.start();
-      bcDebugAppend('Quagga.start() called — scan loop should now be running');
     });
   }
 
@@ -1532,7 +1485,6 @@
       try { Quagga.stop(); } catch(e){ /* ignore */ }
     }
     bcActive = false;
-    bcUnpatchConsole();
   }
 
   // Open Food Facts' servers occasionally answer a valid request with a
