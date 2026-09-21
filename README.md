@@ -1,21 +1,19 @@
 # Iron Ledger — installable app version
 
-This is the same app you've been using, packaged as a proper installable
-Progressive Web App (PWA): it can sit on your phone's home screen or run
+This is a installable Progressive Web App (PWA): it can sit on your phone's home screen or run
 as its own windowed app on your computer, and it keeps working without
 an internet connection once it's loaded once.
 
 What changed from the single-file version:
 - **Progress photos now use IndexedDB** instead of `localStorage`. This
-  removes the old ~5–10MB ceiling that mostly ate into your photo storage
+  removes the old ~5–10MB ceiling that mostly ate into photo storage
   — the practical limit is now hundreds of MB to a few GB, depending on
-  your device and how full its disk is. Everything else (food log,
+  the device and how full its disk is. Everything else (food log,
   workouts, weight, measurements, pantry, shopping list) still uses
-  `localStorage`, which is plenty for that kind of small text data.
+  `localStorage`, which is plenty for this kind of small text data.
 - Added `manifest.json`, `service-worker.js`, and app icons so the app is
   installable and works offline.
 
-Nothing about how you *use* the app changed — same tabs, same features.
 
 ## Run it locally
 
@@ -48,7 +46,7 @@ the same way.)
 
 ## Install it on your computer
 
-Open the app in Chrome or Edge — look for an install icon (a little
+Open the app in Chrome or Edge, look for an install icon (a little
 monitor with a down arrow) in the address bar, or the **⋮** menu →
 **Install Iron Ledger**. It becomes a real windowed app with its own
 icon in your dock/taskbar, separate from your browser.
@@ -60,9 +58,9 @@ running on your computer. For something that's always available (so you
 can install it once and forget about the terminal), put these same
 files on any static host:
 
-- **Netlify** or **Vercel** — drag-and-drop the folder in their web
+- **Netlify** or **Vercel** - drag and drop the folder in their web
   dashboard, get a URL in under a minute, free for this kind of use.
-- **GitHub Pages** — push this folder to a repo, turn on Pages in
+- **GitHub Pages** - push this folder to a repo, turn on Pages in
   settings.
 
 Whichever you pick, install the app from *that* URL instead of
@@ -71,18 +69,11 @@ close the terminal.
 
 ## Data & privacy
 
-Everything still lives only on your device — nothing in this app talks
+Everything lives only on your device — nothing in this app talks
 to a server. Installing it as a PWA doesn't change that; it's still the
 exact same local storage and IndexedDB, just wrapped so it feels like a
 native app. Uninstalling the app removes its icon but the underlying
-browser data may persist until you clear site data for it — same as any
+browser data may persist until you clear site data for it, same as any
 other installed PWA.
 
-## If you outgrow this
 
-If you eventually want a real native app (App Store / Play Store
-presence, background notifications, Apple Health / Google Fit
-integration, syncing across devices), the natural next step is wrapping
-this same `index.html` with **Capacitor**, which needs Xcode (Mac, for
-iOS) and/or Android Studio (any OS, for Android). Ask and I can put
-together that starter project too.
