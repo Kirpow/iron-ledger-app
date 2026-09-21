@@ -651,8 +651,8 @@
         <button class="btn ghost" id="pauseWorkoutBtn" style="display:none;">Pause workout</button>
       </div>
       <button class="btn ghost small" id="endWorkoutBtn" style="display:none; margin-top:8px; width:100%;">Finish working out for the day</button>
-      <label style="display:flex; align-items:center; gap:8px; margin-top:10px; font-size:12.5px; color:var(--text-dim);">
-        <input type="checkbox" id="autoRollRest" style="flex:0 0 auto;"><span style="flex:1 1 auto; min-width:0;">Auto-start next set when rest ends — the timer decides, you don't have to watch it</span>
+      <label style="display:block; margin-top:10px; font-size:12.5px; color:var(--text-dim); line-height:1.5;">
+        <input type="checkbox" id="autoRollRest" style="width:16px; height:16px; vertical-align:middle; margin-right:8px; accent-color:var(--brass);">Auto-start next set when rest ends — the timer decides, you don't have to watch it
       </label>
     </div>
 
@@ -2845,8 +2845,14 @@
   ];
   recipes.forEach(r => Object.assign(r, computeRecipeNutrition(r.macroIngredients, r.servings)));
 
-  let activeFilter = 'all';
+  // Nothing is pre-selected — with 50+ recipes, dumping "All" open by
+  // default is exactly what buried the tab. Tapping a chip again deselects
+  // it back to the empty prompt state; even within a chosen category only
+  // a handful render at a time (recipeShowCount), with "Show more" to page
+  // through the rest instead of one long scroll.
+  let activeFilter = null;
   const filters = ['all','breakfast','lunch','dinner','snack'];
+  let recipeShowCount = 6;
 
   function renderFilters(){
     const wrap = document.getElementById('recipeFilters');
@@ -2855,7 +2861,12 @@
       const chip = document.createElement('button');
       chip.className = 'chip' + (f === activeFilter ? ' active' : '');
       chip.textContent = f === 'all' ? 'All' : f[0].toUpperCase()+f.slice(1);
-      chip.addEventListener('click', () => { activeFilter = f; renderFilters(); renderRecipes(); });
+      chip.addEventListener('click', () => {
+        activeFilter = (activeFilter === f) ? null : f;
+        recipeShowCount = 6;
+        renderFilters();
+        renderRecipes();
+      });
       wrap.appendChild(chip);
     });
   }
@@ -2864,10 +2875,12 @@
   let recipeSearchTerm = '';
   document.getElementById('recipeSearch').addEventListener('input', function(){
     recipeSearchTerm = this.value.trim().toLowerCase();
+    recipeShowCount = 6;
     renderRecipes();
   });
   document.getElementById('toggleReadyFilter').addEventListener('click', function(){
     onlyReady = !onlyReady;
+    recipeShowCount = 6;
     this.classList.toggle('active-link', onlyReady);
     this.style.color = onlyReady ? 'var(--sage)' : '';
     renderRecipes();
@@ -2880,7 +2893,18 @@
   function renderRecipes(){
     const list = document.getElementById('recipeList');
     list.innerHTML = '';
-    let shown = recipes.filter(r => activeFilter === 'all' || r.tag === activeFilter);
+
+    const hasIntent = !!activeFilter || !!recipeSearchTerm || onlyReady;
+    if(!hasIntent){
+      list.innerHTML = '<div class="empty-note">Pick a category above, or search, to browse recipes.</div>';
+      onlineRecipeSearchSeq++;
+      if(onlineRecipeSearchTimer){ clearTimeout(onlineRecipeSearchTimer); onlineRecipeSearchTimer = null; }
+      const onlineBox = document.getElementById('onlineRecipeResults');
+      if(onlineBox) onlineBox.innerHTML = '';
+      return;
+    }
+
+    let shown = (activeFilter && activeFilter !== 'all') ? recipes.filter(r => r.tag === activeFilter) : recipes.slice();
     if(recipeSearchTerm){
       shown = shown.filter(r => r.name.toLowerCase().includes(recipeSearchTerm) || r.ingredients.some(i => i.toLowerCase().includes(recipeSearchTerm)));
     }
@@ -2903,7 +2927,7 @@
       list.innerHTML = '<div class="empty-note">' + (onlyReady ? 'Nothing fully matches your pantry yet — add more items or turn this filter off.' : 'No recipes match.') + '</div>';
       return;
     }
-    filtered.forEach(({ r, m }) => {
+    filtered.slice(0, recipeShowCount).forEach(({ r, m }) => {
       const card = document.createElement('div');
       card.className = 'recipe-card';
       card.innerHTML = `
@@ -2952,6 +2976,16 @@
       card.querySelector('.log-recipe-btn').addEventListener('click', (ev) => { ev.stopPropagation(); logRecipeToToday(r); });
       list.appendChild(card);
     });
+
+    if(filtered.length > recipeShowCount){
+      const remaining = filtered.length - recipeShowCount;
+      const more = document.createElement('button');
+      more.className = 'btn ghost small';
+      more.style.cssText = 'width:100%; margin-top:6px;';
+      more.textContent = 'Show ' + Math.min(6, remaining) + ' more (' + remaining + ' left)';
+      more.addEventListener('click', () => { recipeShowCount += 6; renderRecipes(); });
+      list.appendChild(more);
+    }
   }
 
   // ---------- online recipe search (Spoonacular when a key is set, else
