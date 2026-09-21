@@ -1266,18 +1266,22 @@
     const backCameraId = await pickBackCameraId();
     bcDebugAppend('picked camera: ' + (backCameraId || '(facingMode fallback)'));
     if(!bcActive || bcInstance !== scanner) return; // modal was closed while we were enumerating
-    const cameraConfig = backCameraId
-      ? { deviceId: { exact: backCameraId } }
-      : { facingMode: 'environment' };
-    cameraConfig.width = { ideal: 1920 };
-    cameraConfig.height = { ideal: 1080 };
+    // html5-qrcode's cameraIdOrConfig argument only accepts a plain camera
+    // id string or a single-key constraint object — it rejects anything
+    // else outright. Extra constraints (resolution) go in the separate
+    // videoConstraints field of the scan config instead.
+    const cameraIdOrConfig = backCameraId || { facingMode: 'environment' };
     bcFrameCount = 0;
     bcLastFrameErr = '';
     bcDebugAppend('calling scanner.start()...');
     try {
       await scanner.start(
-        cameraConfig,
-        { fps: 10, qrbox: { width: 260, height: 160 } },
+        cameraIdOrConfig,
+        {
+          fps: 10,
+          qrbox: { width: 260, height: 160 },
+          videoConstraints: { width: { ideal: 1920 }, height: { ideal: 1080 } },
+        },
         function(decodedText){
           stopBarcodeCamera();
           handleScannedBarcode(decodedText);
