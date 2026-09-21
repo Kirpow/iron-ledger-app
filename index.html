@@ -150,6 +150,7 @@
   /* Section headers */
   .sec-head { display: flex; align-items: center; justify-content: space-between; margin: 22px 0 10px; }
   .sec-head h3 { font-size: 15px; font-weight: 500; color: var(--text-dim); text-transform: none; }
+  .sec-head-actions { display: flex; align-items: center; gap: 14px; flex-shrink: 0; }
   .link-btn { background: none; border: none; color: var(--brass); font-size: 13.5px; cursor: pointer; padding: 4px 0; font-weight: 500; }
 
   /* Food log entries */
@@ -222,6 +223,7 @@
   .recipe-section-lbl { font-size: 11px; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.5px; margin: 10px 0 5px; }
   .recipe-body ul { margin: 0; padding-left: 18px; font-size: 13.5px; line-height: 1.7; color: var(--text-dim); }
   .recipe-body ol { margin: 0; padding-left: 18px; font-size: 13.5px; line-height: 1.7; color: var(--text-dim); }
+  .online-recipe-method { margin: 0; font-size: 13.5px; line-height: 1.7; color: var(--text-dim); white-space: pre-line; }
   .filter-row { display: flex; gap: 8px; margin-bottom: 14px; overflow-x: auto; padding-bottom: 2px; }
   .chip { flex-shrink: 0; background: var(--panel-2); border: 1px solid var(--border); color: var(--text-dim); padding: 6px 13px; border-radius: 20px; font-size: 13px; cursor: pointer; white-space: nowrap; }
   .chip.active { background: var(--brass-dim); border-color: var(--brass); color: var(--text); }
@@ -329,11 +331,21 @@
   /* Pantry */
   .pantry-card { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius-m); padding: 14px; margin-bottom: 16px; }
   .pantry-add-row { display: flex; gap: 8px; margin-bottom: 12px; }
-  .pantry-add-row input { flex: 1; }
-  .pantry-chips { display: flex; flex-wrap: wrap; gap: 7px; }
+  .pantry-add-row input:first-child { flex: 1; }
+  .pantry-chips { display: block; }
+  .pantry-group { border-bottom: 1px solid var(--border); }
+  .pantry-group:last-child { border-bottom: none; }
+  .pantry-group-head { display: flex; align-items: center; gap: 8px; padding: 9px 2px; cursor: pointer; }
+  .pantry-group-head .pg-label { font-size: 13.5px; font-weight: 500; color: var(--text); }
+  .pantry-group-head .pg-count { font-size: 11.5px; color: var(--text-faint); }
+  .pantry-group-head .chev { margin-left: auto; }
+  .pantry-group.open .chev { transform: rotate(180deg); }
+  .pantry-chips-inner { display: none; flex-wrap: wrap; gap: 7px; padding: 2px 2px 10px; }
+  .pantry-group.open .pantry-chips-inner { display: flex; }
   .pantry-chip { display: flex; align-items: center; gap: 6px; background: var(--panel-2); border: 1px solid var(--border); border-radius: 20px; padding: 5px 6px 5px 12px; font-size: 13px; }
   .pantry-chip button { background: none; border: none; color: var(--text-faint); cursor: pointer; font-size: 15px; padding: 0 4px; line-height: 1; }
   .pantry-chip button:hover { color: var(--rust); }
+  .pc-qty { color: var(--text-faint); font-size: 11.5px; }
   .pantry-empty { color: var(--text-faint); font-size: 13px; }
 
   /* Recipe match info */
@@ -554,17 +566,28 @@
     <div class="pantry-card">
       <div class="pantry-add-row">
         <input type="text" id="pantryInput" placeholder="e.g. chicken, rice, eggs, spinach" autocomplete="off">
+        <input type="text" inputmode="numeric" id="pantryQty" value="1" title="Quantity" style="flex:0 0 46px; text-align:center;">
         <button class="btn small" id="pantryAddBtn">Add</button>
         <button class="btn small ghost" id="pantryScanBtn" type="button" title="Scan barcode to add">📷</button>
       </div>
+      <div class="note" style="margin:0 0 12px;">Adding something you already have adds to its quantity instead of a duplicate entry. Tap a category below to see what's in it.</div>
       <div class="pantry-chips" id="pantryChips"></div>
-      <button class="btn ghost small" id="clearPantryBtn" style="margin-top:12px; width:auto;">Clear pantry</button>
     </div>
 
-    <div class="sec-head" style="margin-top:0;"><h3>Suggested recipes</h3><button class="link-btn" id="toggleReadyFilter">Ready to cook only</button></div>
-    <input type="text" id="recipeSearch" placeholder="Search recipes..." autocomplete="off" style="margin-bottom:10px;">
-    <div class="filter-row" id="recipeFilters"></div>
-    <div id="recipeList"></div>
+    <div class="sec-head" style="margin-top:0;">
+      <h3>Suggested recipes</h3>
+      <div class="sec-head-actions">
+        <button class="link-btn" id="toggleReadyFilter">Ready to cook only</button>
+        <button class="link-btn" id="toggleRecipesBtn">Expand</button>
+      </div>
+    </div>
+    <div id="recipesBody">
+      <input type="text" id="recipeSearch" placeholder="Search recipes..." autocomplete="off" style="margin-bottom:10px;">
+      <div class="filter-row" id="recipeFilters"></div>
+      <div id="recipeList"></div>
+      <div id="onlineRecipeResults"></div>
+      <div class="note" style="margin-top:2px;">No local match searches TheMealDB.com for free — no account needed. Those results don't include nutrition info, so logging one opens the food form for you to fill in the calories.</div>
+    </div>
 
     <div class="sec-head"><h3>Shopping list</h3></div>
     <div class="pantry-card">
@@ -627,6 +650,9 @@
         <button class="btn ghost" id="pauseWorkoutBtn" style="display:none;">Pause workout</button>
       </div>
       <button class="btn ghost small" id="endWorkoutBtn" style="display:none; margin-top:8px; width:100%;">Finish working out for the day</button>
+      <label style="display:flex; align-items:center; gap:8px; margin-top:10px; font-size:12.5px; color:var(--text-dim);">
+        <input type="checkbox" id="autoRollRest" style="flex:0 0 auto;"><span style="flex:1 1 auto; min-width:0;">Auto-start next set when rest ends — the timer decides, you don't have to watch it</span>
+      </label>
     </div>
 
     <button class="btn ghost add-ex-btn" id="toggleExPicker">+ Add exercise</button>
@@ -784,7 +810,7 @@
     </div>
 
     <div class="settings-card">
-      <h4>Or set targets manually</h4>
+      <h4>Set targets manually</h4>
       <div class="row2">
         <div class="field"><label class="f">Calories</label><input type="text" inputmode="decimal" id="mCal"></div>
         <div class="field"><label class="f">Protein (g)</label><input type="text" inputmode="decimal" id="mProt"></div>
@@ -797,19 +823,24 @@
     </div>
 
     <div class="settings-card">
-      <h4>Barcode lookup (optional)</h4>
-      <div class="note" style="margin-top:0;">The barcode scanner uses Open Food Facts by default — free, no signup, and this works for anyone using the app with no setup. You can also connect a free USDA FoodData Central key, which is often more accurate for U.S. packaged foods and gets offered as a second option whenever a scan looks wrong. This key is only saved on this device — everyone using the app can (and can skip) set up their own.</div>
-      <label class="f" style="margin-top:12px;">USDA API key</label>
-      <input type="text" id="usdaKeyInput" placeholder="Paste your key here — leave blank to skip" autocomplete="off">
-      <button class="link-btn" id="toggleUsdaHelp" style="padding:4px 0 0;">How do I get a free key?</button>
-      <div id="usdaHelpBox" style="display:none; margin-top:8px;">
-        <ol style="margin:0; padding-left:18px; font-size:12.5px; color:var(--text-dim); line-height:1.7;">
-          <li>Open <a href="https://fdc.nal.usda.gov/api-key-signup" target="_blank" rel="noreferrer" style="color:var(--brass);">fdc.nal.usda.gov/api-key-signup</a> (a U.S. government site — free, no payment, no approval wait).</li>
-          <li>Enter your name and email, then submit the form.</li>
-          <li>Check that email — the key arrives within a couple of minutes.</li>
-          <li>Copy it and paste it into the field above. That's it.</li>
-        </ol>
-        <div class="note" style="margin-top:8px;">Not comfortable doing that? Just leave the field blank — barcode scanning keeps working exactly as it does today, no change needed.</div>
+      <div class="sec-head" style="margin:0 0 12px;">
+        <h4 style="margin:0;">Barcode lookup (optional)</h4>
+        <button class="link-btn" id="toggleBarcodeBtn">Minimize</button>
+      </div>
+      <div id="barcodeBody">
+        <div class="note" style="margin-top:0;">The barcode scanner uses Open Food Facts by default — free, no signup, and this works for anyone using the app with no setup. You can also connect a free USDA FoodData Central key, which is often more accurate for U.S. packaged foods and gets offered as a second option whenever a scan looks wrong. This key is only saved on this device — everyone using the app can (and can skip) set up their own.</div>
+        <label class="f" style="margin-top:12px;">USDA API key</label>
+        <input type="text" id="usdaKeyInput" placeholder="Paste your key here — leave blank to skip" autocomplete="off">
+        <button class="link-btn" id="toggleUsdaHelp" style="padding:4px 0 0;">How do I get a free key?</button>
+        <div id="usdaHelpBox" style="display:none; margin-top:8px;">
+          <ol style="margin:0; padding-left:18px; font-size:12.5px; color:var(--text-dim); line-height:1.7;">
+            <li>Open <a href="https://fdc.nal.usda.gov/api-key-signup" target="_blank" rel="noreferrer" style="color:var(--brass);">fdc.nal.usda.gov/api-key-signup</a> (a U.S. government site — free, no payment, no approval wait).</li>
+            <li>Enter your name and email, then submit the form.</li>
+            <li>Check that email — the key arrives within a couple of minutes.</li>
+            <li>Copy it and paste it into the field above. That's it.</li>
+          </ol>
+          <div class="note" style="margin-top:8px;">Not comfortable doing that? Just leave the field blank — barcode scanning keeps working exactly as it does today, no change needed.</div>
+        </div>
       </div>
     </div>
 
@@ -817,6 +848,7 @@
       <h4>Data</h4>
       <div class="note" style="margin-top:0;">Everything is stored privately in this browser only — nothing leaves your device. Clearing it removes all logged food and workout history.</div>
       <button class="btn ghost" id="resetAllBtn" style="margin-top:10px;">Clear all data</button>
+      <button class="btn ghost" id="clearPantryBtn" style="margin-top:10px;">Clear pantry only</button>
     </div>
   </section>
 
@@ -977,7 +1009,34 @@
     document.getElementById('sWeight').value = profile.weight;
     document.getElementById('sHeight').value = profile.height;
     document.getElementById('sActivity').value = profile.activity;
+    macroRatioBaseline = { prot: targets.prot, carb: targets.carb, fat: targets.fat };
   }
+
+  // Keeps the manual-entry macro split in sync with calories: editing the
+  // Calories field rescales protein/carbs/fat to the same ratio instead of
+  // leaving them stuck at whatever they were. The ratio is anchored to a
+  // separate baseline (not the live fields) so retyping calories digit by
+  // digit can't collapse it to zero along the way.
+  let macroRatioBaseline = { prot: targets.prot, carb: targets.carb, fat: targets.fat };
+  function refreshMacroBaseline(){
+    const prot = parseFloat(document.getElementById('mProt').value) || 0;
+    const carb = parseFloat(document.getElementById('mCarb').value) || 0;
+    const fat = parseFloat(document.getElementById('mFat').value) || 0;
+    if(prot > 0 || carb > 0 || fat > 0) macroRatioBaseline = { prot, carb, fat };
+  }
+  ['mProt','mCarb','mFat'].forEach(id => {
+    document.getElementById(id).addEventListener('input', refreshMacroBaseline);
+  });
+  document.getElementById('mCal').addEventListener('input', function(){
+    const newCal = parseFloat(this.value);
+    if(!newCal || newCal <= 0) return;
+    const baseCal = macroRatioBaseline.prot*4 + macroRatioBaseline.carb*4 + macroRatioBaseline.fat*9;
+    if(!baseCal) return;
+    const scale = newCal / baseCal;
+    document.getElementById('mProt').value = Math.round(macroRatioBaseline.prot * scale);
+    document.getElementById('mCarb').value = Math.round(macroRatioBaseline.carb * scale);
+    document.getElementById('mFat').value = Math.round(macroRatioBaseline.fat * scale);
+  });
 
   function calcMacros(){
     const sex = document.getElementById('sSex').value;
@@ -1882,8 +1941,16 @@
     }
     const consumedNames = pantryItemsConsumedByRecipe(recipe);
     if(consumedNames.length){
-      const remaining = getPantry().filter(function(p){ return consumedNames.indexOf(p.name.toLowerCase()) === -1; });
-      setPantry(remaining);
+      // Uses up one unit per consumed item rather than wiping the whole
+      // entry, so "2 cans of tuna" correctly becomes 1 after logging a
+      // recipe that calls for one can.
+      const updated = [];
+      getPantry().forEach(function(p){
+        if(consumedNames.indexOf(p.name.toLowerCase()) === -1){ updated.push(p); return; }
+        const newQty = (p.qty || 1) - 1;
+        if(newQty > 0) updated.push(Object.assign({}, p, { qty: newQty }));
+      });
+      setPantry(updated);
       renderPantry();
     }
     renderToday();
@@ -1894,105 +1961,151 @@
   }
 
   // ---------- food database (local, offline — see settings note for why) ----------
+  // Every entry's stated portion (the "(4oz)"/"(1 cup)" in its name) is also
+  // machine-readable as id/portionQty/portionUnit, so recipe nutrition can be
+  // computed from these same numbers instead of hand-typed per recipe — see
+  // computeRecipeNutrition() below. Purely additive: food-search still only
+  // matches on .name, so this changes nothing about existing food logging.
   const foodDB = [
-    { name:'Chicken breast, cooked (4oz)', cal:187, prot:35, carb:0, fat:4 },
-    { name:'Chicken thigh, cooked (4oz)', cal:250, prot:30, carb:0, fat:14 },
-    { name:'Rotisserie chicken w/ skin (4oz)', cal:260, prot:30, carb:0, fat:15 },
-    { name:'Ground beef 90/10, cooked (4oz)', cal:240, prot:30, carb:0, fat:12 },
-    { name:'Ground turkey 93/7, cooked (4oz)', cal:200, prot:28, carb:0, fat:9 },
-    { name:'Pork tenderloin, cooked (4oz)', cal:180, prot:33, carb:0, fat:5 },
-    { name:'Salmon, cooked (4oz)', cal:233, prot:25, carb:0, fat:14 },
-    { name:'Tilapia, cooked (4oz)', cal:145, prot:30, carb:0, fat:3 },
-    { name:'Cod, cooked (4oz)', cal:120, prot:26, carb:0, fat:1 },
-    { name:'Halibut, cooked (4oz)', cal:159, prot:30, carb:0, fat:3 },
-    { name:'Shrimp, cooked (4oz)', cal:120, prot:26, carb:0, fat:1 },
-    { name:'Tuna, canned in water (5oz can)', cal:120, prot:27, carb:0, fat:1 },
-    { name:'Egg, whole, large', cal:72, prot:6, carb:0.4, fat:5 },
-    { name:'Egg white, large', cal:17, prot:3.6, carb:0.2, fat:0 },
-    { name:'Turkey bacon (2 slices)', cal:70, prot:6, carb:1, fat:5 },
-    { name:'Bacon (2 slices)', cal:90, prot:6, carb:0, fat:7 },
-    { name:'Deli turkey slices (3oz)', cal:90, prot:18, carb:2, fat:1 },
-    { name:'Deli ham slices (3oz)', cal:100, prot:16, carb:2, fat:3 },
-    { name:'Beef jerky (1oz)', cal:116, prot:9, carb:3, fat:7 },
-    { name:'Greek yogurt, plain nonfat (1 cup)', cal:130, prot:23, carb:9, fat:0 },
-    { name:'Greek yogurt, plain 2% (1 cup)', cal:150, prot:20, carb:8, fat:4 },
-    { name:'Yogurt, vanilla, regular (1 cup)', cal:190, prot:11, carb:32, fat:3 },
-    { name:'Cottage cheese, low-fat (1 cup)', cal:180, prot:28, carb:8, fat:4 },
-    { name:'String cheese (1 stick)', cal:80, prot:7, carb:1, fat:6 },
-    { name:'Cheddar cheese (1oz)', cal:115, prot:7, carb:0.4, fat:9 },
-    { name:'Cream cheese (2 tbsp)', cal:100, prot:2, carb:2, fat:10 },
-    { name:'Milk, 2% (1 cup)', cal:122, prot:8, carb:12, fat:5 },
-    { name:'Milk, whole (1 cup)', cal:149, prot:8, carb:12, fat:8 },
-    { name:'Milk, skim (1 cup)', cal:83, prot:8, carb:12, fat:0.2 },
-    { name:'Almond milk, unsweetened (1 cup)', cal:30, prot:1, carb:1, fat:2.5 },
-    { name:'Sour cream (2 tbsp)', cal:60, prot:1, carb:1, fat:6 },
-    { name:'Butter (1 tbsp)', cal:100, prot:0, carb:0, fat:11 },
-    { name:'Whey protein powder (1 scoop)', cal:120, prot:24, carb:3, fat:1.5 },
-    { name:'Protein bar, generic (1 bar)', cal:200, prot:20, carb:22, fat:7 },
-    { name:'Oats, dry (1/2 cup)', cal:150, prot:5, carb:27, fat:3 },
-    { name:'Brown rice, cooked (1 cup)', cal:216, prot:5, carb:45, fat:1.8 },
-    { name:'White rice, cooked (1 cup)', cal:205, prot:4, carb:45, fat:0.4 },
-    { name:'Quinoa, cooked (1 cup)', cal:222, prot:8, carb:39, fat:3.6 },
-    { name:'Pasta, cooked (1 cup)', cal:220, prot:8, carb:43, fat:1.3 },
-    { name:'Sweet potato, medium baked', cal:103, prot:2, carb:24, fat:0.2 },
-    { name:'White potato, medium baked', cal:161, prot:4, carb:37, fat:0.2 },
-    { name:'Bagel, plain, medium', cal:270, prot:10, carb:53, fat:1.5 },
-    { name:'English muffin', cal:130, prot:5, carb:26, fat:1 },
-    { name:'Whole wheat bread (1 slice)', cal:80, prot:4, carb:14, fat:1 },
-    { name:'Tortilla, whole wheat, medium', cal:130, prot:4, carb:22, fat:3 },
-    { name:'Tortilla, corn', cal:55, prot:1.5, carb:12, fat:0.6 },
-    { name:'Rice cake', cal:35, prot:0.7, carb:7, fat:0.3 },
-    { name:'Pancake, medium', cal:90, prot:2.5, carb:11, fat:3.5 },
-    { name:'Waffle, frozen', cal:100, prot:2.4, carb:15, fat:3.5 },
-    { name:'Black beans, cooked (1 cup)', cal:227, prot:15, carb:41, fat:0.9 },
-    { name:'Chickpeas, cooked (1 cup)', cal:269, prot:15, carb:45, fat:4.3 },
-    { name:'Lentils, cooked (1 cup)', cal:230, prot:18, carb:40, fat:0.8 },
-    { name:'Hummus (2 tbsp)', cal:70, prot:2, carb:6, fat:4.5 },
-    { name:'Almonds (1oz, ~23 nuts)', cal:164, prot:6, carb:6, fat:14 },
-    { name:'Walnuts (1oz)', cal:185, prot:4.3, carb:3.9, fat:18.5 },
-    { name:'Cashews (1oz)', cal:157, prot:5, carb:9, fat:12 },
-    { name:'Mixed nuts (1oz)', cal:170, prot:5, carb:6, fat:15 },
-    { name:'Peanut butter (2 tbsp)', cal:190, prot:8, carb:7, fat:16 },
-    { name:'Chia seeds (1 tbsp)', cal:60, prot:2, carb:5, fat:4 },
-    { name:'Flaxseed, ground (1 tbsp)', cal:37, prot:1.3, carb:2, fat:3 },
-    { name:'Olive oil (1 tbsp)', cal:119, prot:0, carb:0, fat:13.5 },
-    { name:'Avocado (half)', cal:120, prot:1.5, carb:6, fat:11 },
-    { name:'Banana, medium', cal:105, prot:1.3, carb:27, fat:0.4 },
-    { name:'Apple, medium', cal:95, prot:0.5, carb:25, fat:0.3 },
-    { name:'Orange, medium', cal:62, prot:1.2, carb:15, fat:0.2 },
-    { name:'Grapes (1 cup)', cal:104, prot:1.1, carb:27, fat:0.2 },
-    { name:'Watermelon (1 cup)', cal:46, prot:0.9, carb:11, fat:0.2 },
-    { name:'Blueberries (1 cup)', cal:84, prot:1.1, carb:21, fat:0.5 },
-    { name:'Strawberries (1 cup)', cal:49, prot:1, carb:12, fat:0.5 },
-    { name:'Spinach, raw (2 cups)', cal:14, prot:1.8, carb:2.2, fat:0.2 },
-    { name:'Kale, raw (2 cups)', cal:66, prot:4.3, carb:13, fat:0.9 },
-    { name:'Broccoli, cooked (1 cup)', cal:55, prot:3.7, carb:11, fat:0.6 },
-    { name:'Cauliflower, cooked (1 cup)', cal:29, prot:2.3, carb:5.3, fat:0.6 },
-    { name:'Zucchini, cooked (1 cup)', cal:27, prot:2, carb:5, fat:0.4 },
-    { name:'Bell pepper, medium', cal:30, prot:1, carb:7, fat:0.3 },
-    { name:'Cucumber, sliced (1 cup)', cal:16, prot:0.7, carb:3.8, fat:0.1 },
-    { name:'Tomato, medium', cal:22, prot:1.1, carb:4.8, fat:0.2 },
-    { name:'Onion, medium', cal:44, prot:1.2, carb:10, fat:0.1 },
-    { name:'Garlic (1 clove)', cal:4, prot:0.2, carb:1, fat:0 },
-    { name:'Olives (10 large)', cal:50, prot:0.3, carb:3, fat:4.5 },
-    { name:'Guacamole (2 tbsp)', cal:50, prot:0.6, carb:3, fat:4.5 },
-    { name:'Salsa (2 tbsp)', cal:10, prot:0.4, carb:2, fat:0.1 },
-    { name:'Dark chocolate, 70% (1oz)', cal:170, prot:2, carb:13, fat:12 },
-    { name:'Popcorn, air-popped (3 cups)', cal:93, prot:3, carb:19, fat:1 },
-    { name:'Pretzels (1oz)', cal:108, prot:2.6, carb:23, fat:0.8 },
-    { name:'Tortilla chips (1oz)', cal:140, prot:2, carb:18, fat:7 },
-    { name:'Ice cream, vanilla (1/2 cup)', cal:137, prot:2.3, carb:16, fat:7.3 },
-    { name:'Honey (1 tbsp)', cal:64, prot:0, carb:17, fat:0 },
-    { name:'Maple syrup (1 tbsp)', cal:52, prot:0, carb:13, fat:0 },
-    { name:'Ranch dressing (2 tbsp)', cal:140, prot:0.5, carb:2, fat:15 },
-    { name:'Balsamic vinaigrette (2 tbsp)', cal:90, prot:0, carb:3, fat:9 },
-    { name:'Mayonnaise (1 tbsp)', cal:94, prot:0.1, carb:0.1, fat:10 },
-    { name:'Ketchup (1 tbsp)', cal:20, prot:0.2, carb:5, fat:0 },
-    { name:'Mustard (1 tsp)', cal:3, prot:0.2, carb:0.3, fat:0.2 },
-    { name:'BBQ sauce (2 tbsp)', cal:60, prot:0.3, carb:14, fat:0.2 },
-    { name:'Soy sauce (1 tbsp)', cal:10, prot:1.3, carb:1, fat:0 },
-    { name:'Coconut milk, canned (1/4 cup)', cal:110, prot:1, carb:2, fat:12 },
+    { id:'chicken-breast', name:'Chicken breast, cooked (4oz)', cal:187, prot:35, carb:0, fat:4, portionQty:4, portionUnit:'oz' },
+    { id:'chicken-thigh', name:'Chicken thigh, cooked (4oz)', cal:250, prot:30, carb:0, fat:14, portionQty:4, portionUnit:'oz' },
+    { id:'rotisserie-chicken', name:'Rotisserie chicken w/ skin (4oz)', cal:260, prot:30, carb:0, fat:15, portionQty:4, portionUnit:'oz' },
+    { id:'ground-beef-90-10', name:'Ground beef 90/10, cooked (4oz)', cal:240, prot:30, carb:0, fat:12, portionQty:4, portionUnit:'oz' },
+    { id:'beef-sirloin', name:'Beef sirloin, lean, cooked (4oz)', cal:190, prot:28, carb:0, fat:8, portionQty:4, portionUnit:'oz' },
+    { id:'ground-turkey-93-7', name:'Ground turkey 93/7, cooked (4oz)', cal:200, prot:28, carb:0, fat:9, portionQty:4, portionUnit:'oz' },
+    { id:'turkey-sausage', name:'Turkey breakfast sausage, cooked (4oz)', cal:200, prot:20, carb:2, fat:12, portionQty:4, portionUnit:'oz' },
+    { id:'pork-tenderloin', name:'Pork tenderloin, cooked (4oz)', cal:180, prot:33, carb:0, fat:5, portionQty:4, portionUnit:'oz' },
+    { id:'salmon', name:'Salmon, cooked (4oz)', cal:233, prot:25, carb:0, fat:14, portionQty:4, portionUnit:'oz' },
+    { id:'tilapia', name:'Tilapia, cooked (4oz)', cal:145, prot:30, carb:0, fat:3, portionQty:4, portionUnit:'oz' },
+    { id:'cod', name:'Cod, cooked (4oz)', cal:120, prot:26, carb:0, fat:1, portionQty:4, portionUnit:'oz' },
+    { id:'halibut', name:'Halibut, cooked (4oz)', cal:159, prot:30, carb:0, fat:3, portionQty:4, portionUnit:'oz' },
+    { id:'shrimp', name:'Shrimp, cooked (4oz)', cal:120, prot:26, carb:0, fat:1, portionQty:4, portionUnit:'oz' },
+    { id:'tuna-canned', name:'Tuna, canned in water (5oz can)', cal:120, prot:27, carb:0, fat:1, portionQty:1, portionUnit:'can' },
+    { id:'egg', name:'Egg, whole, large', cal:72, prot:6, carb:0.4, fat:5, portionQty:1, portionUnit:'whole' },
+    { id:'egg-white', name:'Egg white, large', cal:17, prot:3.6, carb:0.2, fat:0, portionQty:1, portionUnit:'whole' },
+    { id:'egg-whites-liquid', name:'Egg whites, liquid (1 cup)', cal:126, prot:26, carb:2, fat:0, portionQty:1, portionUnit:'cup' },
+    { id:'turkey-bacon', name:'Turkey bacon (2 slices)', cal:70, prot:6, carb:1, fat:5, portionQty:2, portionUnit:'slice' },
+    { id:'bacon', name:'Bacon (2 slices)', cal:90, prot:6, carb:0, fat:7, portionQty:2, portionUnit:'slice' },
+    { id:'deli-turkey', name:'Deli turkey slices (3oz)', cal:90, prot:18, carb:2, fat:1, portionQty:3, portionUnit:'oz' },
+    { id:'deli-ham', name:'Deli ham slices (3oz)', cal:100, prot:16, carb:2, fat:3, portionQty:3, portionUnit:'oz' },
+    { id:'beef-jerky', name:'Beef jerky (1oz)', cal:116, prot:9, carb:3, fat:7, portionQty:1, portionUnit:'oz' },
+    { id:'greek-yogurt-nonfat', name:'Greek yogurt, plain nonfat (1 cup)', cal:130, prot:23, carb:9, fat:0, portionQty:1, portionUnit:'cup' },
+    { id:'greek-yogurt-2pct', name:'Greek yogurt, plain 2% (1 cup)', cal:150, prot:20, carb:8, fat:4, portionQty:1, portionUnit:'cup' },
+    { id:'yogurt-vanilla', name:'Yogurt, vanilla, regular (1 cup)', cal:190, prot:11, carb:32, fat:3, portionQty:1, portionUnit:'cup' },
+    { id:'cottage-cheese', name:'Cottage cheese, low-fat (1 cup)', cal:180, prot:28, carb:8, fat:4, portionQty:1, portionUnit:'cup' },
+    { id:'string-cheese', name:'String cheese (1 stick)', cal:80, prot:7, carb:1, fat:6, portionQty:1, portionUnit:'stick' },
+    { id:'cheddar-cheese', name:'Cheddar cheese (1oz)', cal:115, prot:7, carb:0.4, fat:9, portionQty:1, portionUnit:'oz' },
+    { id:'feta-cheese', name:'Feta cheese, crumbled (2 tbsp)', cal:50, prot:2.7, carb:0.8, fat:4, portionQty:2, portionUnit:'tbsp' },
+    { id:'parmesan-cheese', name:'Parmesan cheese, grated (2 tbsp)', cal:43, prot:4, carb:0.4, fat:3, portionQty:2, portionUnit:'tbsp' },
+    { id:'cream-cheese', name:'Cream cheese (2 tbsp)', cal:100, prot:2, carb:2, fat:10, portionQty:2, portionUnit:'tbsp' },
+    { id:'milk-2pct', name:'Milk, 2% (1 cup)', cal:122, prot:8, carb:12, fat:5, portionQty:1, portionUnit:'cup' },
+    { id:'milk-whole', name:'Milk, whole (1 cup)', cal:149, prot:8, carb:12, fat:8, portionQty:1, portionUnit:'cup' },
+    { id:'milk-skim', name:'Milk, skim (1 cup)', cal:83, prot:8, carb:12, fat:0.2, portionQty:1, portionUnit:'cup' },
+    { id:'almond-milk', name:'Almond milk, unsweetened (1 cup)', cal:30, prot:1, carb:1, fat:2.5, portionQty:1, portionUnit:'cup' },
+    { id:'sour-cream', name:'Sour cream (2 tbsp)', cal:60, prot:1, carb:1, fat:6, portionQty:2, portionUnit:'tbsp' },
+    { id:'butter', name:'Butter (1 tbsp)', cal:100, prot:0, carb:0, fat:11, portionQty:1, portionUnit:'tbsp' },
+    { id:'whey-protein', name:'Whey protein powder (1 scoop)', cal:120, prot:24, carb:3, fat:1.5, portionQty:1, portionUnit:'scoop' },
+    { id:'protein-bar', name:'Protein bar, generic (1 bar)', cal:200, prot:20, carb:22, fat:7, portionQty:1, portionUnit:'bar' },
+    { id:'oats-dry', name:'Oats, dry (1/2 cup)', cal:150, prot:5, carb:27, fat:3, portionQty:0.5, portionUnit:'cup' },
+    { id:'granola', name:'Granola (2 tbsp)', cal:60, prot:1.5, carb:9, fat:2.5, portionQty:2, portionUnit:'tbsp' },
+    { id:'breadcrumbs', name:'Breadcrumbs (2 tbsp)', cal:55, prot:2, carb:10, fat:0.5, portionQty:2, portionUnit:'tbsp' },
+    { id:'brown-rice-cooked', name:'Brown rice, cooked (1 cup)', cal:216, prot:5, carb:45, fat:1.8, portionQty:1, portionUnit:'cup' },
+    { id:'white-rice-cooked', name:'White rice, cooked (1 cup)', cal:205, prot:4, carb:45, fat:0.4, portionQty:1, portionUnit:'cup' },
+    { id:'quinoa-cooked', name:'Quinoa, cooked (1 cup)', cal:222, prot:8, carb:39, fat:3.6, portionQty:1, portionUnit:'cup' },
+    { id:'pasta-cooked', name:'Pasta, cooked (1 cup)', cal:220, prot:8, carb:43, fat:1.3, portionQty:1, portionUnit:'cup' },
+    { id:'sweet-potato', name:'Sweet potato, medium baked', cal:103, prot:2, carb:24, fat:0.2, portionQty:1, portionUnit:'whole' },
+    { id:'white-potato', name:'White potato, medium baked', cal:161, prot:4, carb:37, fat:0.2, portionQty:1, portionUnit:'whole' },
+    { id:'bagel', name:'Bagel, plain, medium', cal:270, prot:10, carb:53, fat:1.5, portionQty:1, portionUnit:'whole' },
+    { id:'english-muffin', name:'English muffin', cal:130, prot:5, carb:26, fat:1, portionQty:1, portionUnit:'whole' },
+    { id:'whole-wheat-bread', name:'Whole wheat bread (1 slice)', cal:80, prot:4, carb:14, fat:1, portionQty:1, portionUnit:'slice' },
+    { id:'tortilla-wheat', name:'Tortilla, whole wheat, medium', cal:130, prot:4, carb:22, fat:3, portionQty:1, portionUnit:'whole' },
+    { id:'tortilla-corn', name:'Tortilla, corn', cal:55, prot:1.5, carb:12, fat:0.6, portionQty:1, portionUnit:'whole' },
+    { id:'rice-cake', name:'Rice cake', cal:35, prot:0.7, carb:7, fat:0.3, portionQty:1, portionUnit:'whole' },
+    { id:'pancake', name:'Pancake, medium', cal:90, prot:2.5, carb:11, fat:3.5, portionQty:1, portionUnit:'whole' },
+    { id:'waffle', name:'Waffle, frozen', cal:100, prot:2.4, carb:15, fat:3.5, portionQty:1, portionUnit:'whole' },
+    { id:'black-beans-cooked', name:'Black beans, cooked (1 cup)', cal:227, prot:15, carb:41, fat:0.9, portionQty:1, portionUnit:'cup' },
+    { id:'kidney-beans-cooked', name:'Kidney beans, cooked (1 cup)', cal:225, prot:15, carb:40, fat:0.9, portionQty:1, portionUnit:'cup' },
+    { id:'white-beans-cooked', name:'White (cannellini) beans, cooked (1 cup)', cal:250, prot:17, carb:45, fat:0.6, portionQty:1, portionUnit:'cup' },
+    { id:'chickpeas-cooked', name:'Chickpeas, cooked (1 cup)', cal:269, prot:15, carb:45, fat:4.3, portionQty:1, portionUnit:'cup' },
+    { id:'lentils-cooked', name:'Lentils, cooked (1 cup)', cal:230, prot:18, carb:40, fat:0.8, portionQty:1, portionUnit:'cup' },
+    { id:'edamame', name:'Edamame, shelled, cooked (1 cup)', cal:189, prot:17, carb:14, fat:8, portionQty:1, portionUnit:'cup' },
+    { id:'hummus', name:'Hummus (2 tbsp)', cal:70, prot:2, carb:6, fat:4.5, portionQty:2, portionUnit:'tbsp' },
+    { id:'almonds', name:'Almonds (1oz, ~23 nuts)', cal:164, prot:6, carb:6, fat:14, portionQty:1, portionUnit:'oz' },
+    { id:'walnuts', name:'Walnuts (1oz)', cal:185, prot:4.3, carb:3.9, fat:18.5, portionQty:1, portionUnit:'oz' },
+    { id:'cashews', name:'Cashews (1oz)', cal:157, prot:5, carb:9, fat:12, portionQty:1, portionUnit:'oz' },
+    { id:'mixed-nuts', name:'Mixed nuts (1oz)', cal:170, prot:5, carb:6, fat:15, portionQty:1, portionUnit:'oz' },
+    { id:'peanut-butter', name:'Peanut butter (2 tbsp)', cal:190, prot:8, carb:7, fat:16, portionQty:2, portionUnit:'tbsp' },
+    { id:'chia-seeds', name:'Chia seeds (1 tbsp)', cal:60, prot:2, carb:5, fat:4, portionQty:1, portionUnit:'tbsp' },
+    { id:'flaxseed', name:'Flaxseed, ground (1 tbsp)', cal:37, prot:1.3, carb:2, fat:3, portionQty:1, portionUnit:'tbsp' },
+    { id:'olive-oil', name:'Olive oil (1 tbsp)', cal:119, prot:0, carb:0, fat:13.5, portionQty:1, portionUnit:'tbsp' },
+    { id:'mini-chocolate-chips', name:'Mini chocolate chips (2 tbsp)', cal:140, prot:1, carb:18, fat:8, portionQty:2, portionUnit:'tbsp' },
+    { id:'avocado', name:'Avocado (half)', cal:120, prot:1.5, carb:6, fat:11, portionQty:0.5, portionUnit:'whole' },
+    { id:'banana', name:'Banana, medium', cal:105, prot:1.3, carb:27, fat:0.4, portionQty:1, portionUnit:'whole' },
+    { id:'apple', name:'Apple, medium', cal:95, prot:0.5, carb:25, fat:0.3, portionQty:1, portionUnit:'whole' },
+    { id:'orange', name:'Orange, medium', cal:62, prot:1.2, carb:15, fat:0.2, portionQty:1, portionUnit:'whole' },
+    { id:'grapes', name:'Grapes (1 cup)', cal:104, prot:1.1, carb:27, fat:0.2, portionQty:1, portionUnit:'cup' },
+    { id:'watermelon', name:'Watermelon (1 cup)', cal:46, prot:0.9, carb:11, fat:0.2, portionQty:1, portionUnit:'cup' },
+    { id:'blueberries', name:'Blueberries (1 cup)', cal:84, prot:1.1, carb:21, fat:0.5, portionQty:1, portionUnit:'cup' },
+    { id:'strawberries', name:'Strawberries (1 cup)', cal:49, prot:1, carb:12, fat:0.5, portionQty:1, portionUnit:'cup' },
+    { id:'spinach-raw', name:'Spinach, raw (2 cups)', cal:14, prot:1.8, carb:2.2, fat:0.2, portionQty:2, portionUnit:'cup' },
+    { id:'kale-raw', name:'Kale, raw (2 cups)', cal:66, prot:4.3, carb:13, fat:0.9, portionQty:2, portionUnit:'cup' },
+    { id:'lettuce', name:'Lettuce, shredded (2 cups)', cal:8, prot:0.6, carb:1.5, fat:0.1, portionQty:2, portionUnit:'cup' },
+    { id:'broccoli-cooked', name:'Broccoli, cooked (1 cup)', cal:55, prot:3.7, carb:11, fat:0.6, portionQty:1, portionUnit:'cup' },
+    { id:'cauliflower-cooked', name:'Cauliflower, cooked (1 cup)', cal:29, prot:2.3, carb:5.3, fat:0.6, portionQty:1, portionUnit:'cup' },
+    { id:'asparagus', name:'Asparagus, cooked (1 cup)', cal:40, prot:4.3, carb:7.4, fat:0.4, portionQty:1, portionUnit:'cup' },
+    { id:'zucchini-cooked', name:'Zucchini, cooked (1 cup)', cal:27, prot:2, carb:5, fat:0.4, portionQty:1, portionUnit:'cup' },
+    { id:'zucchini-whole', name:'Zucchini, medium, raw', cal:33, prot:2.4, carb:6, fat:0.6, portionQty:1, portionUnit:'whole' },
+    { id:'corn-kernels', name:'Corn kernels (1/2 cup)', cal:66, prot:2.5, carb:15, fat:0.8, portionQty:0.5, portionUnit:'cup' },
+    { id:'bell-pepper', name:'Bell pepper, medium', cal:30, prot:1, carb:7, fat:0.3, portionQty:1, portionUnit:'whole' },
+    { id:'cucumber', name:'Cucumber, sliced (1 cup)', cal:16, prot:0.7, carb:3.8, fat:0.1, portionQty:1, portionUnit:'cup' },
+    { id:'tomato', name:'Tomato, medium', cal:22, prot:1.1, carb:4.8, fat:0.2, portionQty:1, portionUnit:'whole' },
+    { id:'onion', name:'Onion, medium', cal:44, prot:1.2, carb:10, fat:0.1, portionQty:1, portionUnit:'whole' },
+    { id:'garlic', name:'Garlic (1 clove)', cal:4, prot:0.2, carb:1, fat:0, portionQty:1, portionUnit:'clove' },
+    { id:'olives', name:'Olives (10 large)', cal:50, prot:0.3, carb:3, fat:4.5, portionQty:10, portionUnit:'whole' },
+    { id:'guacamole', name:'Guacamole (2 tbsp)', cal:50, prot:0.6, carb:3, fat:4.5, portionQty:2, portionUnit:'tbsp' },
+    { id:'salsa', name:'Salsa (2 tbsp)', cal:10, prot:0.4, carb:2, fat:0.1, portionQty:2, portionUnit:'tbsp' },
+    { id:'marinara-sauce', name:'Marinara sauce (1/2 cup)', cal:80, prot:2, carb:12, fat:3, portionQty:0.5, portionUnit:'cup' },
+    { id:'chicken-broth', name:'Chicken broth (1 cup)', cal:15, prot:2, carb:1, fat:0.5, portionQty:1, portionUnit:'cup' },
+    { id:'dark-chocolate', name:'Dark chocolate, 70% (1oz)', cal:170, prot:2, carb:13, fat:12, portionQty:1, portionUnit:'oz' },
+    { id:'popcorn', name:'Popcorn, air-popped (3 cups)', cal:93, prot:3, carb:19, fat:1, portionQty:3, portionUnit:'cup' },
+    { id:'pretzels', name:'Pretzels (1oz)', cal:108, prot:2.6, carb:23, fat:0.8, portionQty:1, portionUnit:'oz' },
+    { id:'tortilla-chips', name:'Tortilla chips (1oz)', cal:140, prot:2, carb:18, fat:7, portionQty:1, portionUnit:'oz' },
+    { id:'ice-cream', name:'Ice cream, vanilla (1/2 cup)', cal:137, prot:2.3, carb:16, fat:7.3, portionQty:0.5, portionUnit:'cup' },
+    { id:'honey', name:'Honey (1 tbsp)', cal:64, prot:0, carb:17, fat:0, portionQty:1, portionUnit:'tbsp' },
+    { id:'maple-syrup', name:'Maple syrup (1 tbsp)', cal:52, prot:0, carb:13, fat:0, portionQty:1, portionUnit:'tbsp' },
+    { id:'ranch-dressing', name:'Ranch dressing (2 tbsp)', cal:140, prot:0.5, carb:2, fat:15, portionQty:2, portionUnit:'tbsp' },
+    { id:'balsamic-vinaigrette', name:'Balsamic vinaigrette (2 tbsp)', cal:90, prot:0, carb:3, fat:9, portionQty:2, portionUnit:'tbsp' },
+    { id:'mayonnaise', name:'Mayonnaise (1 tbsp)', cal:94, prot:0.1, carb:0.1, fat:10, portionQty:1, portionUnit:'tbsp' },
+    { id:'ketchup', name:'Ketchup (1 tbsp)', cal:20, prot:0.2, carb:5, fat:0, portionQty:1, portionUnit:'tbsp' },
+    { id:'mustard', name:'Mustard (1 tsp)', cal:3, prot:0.2, carb:0.3, fat:0.2, portionQty:1, portionUnit:'tsp' },
+    { id:'bbq-sauce', name:'BBQ sauce (2 tbsp)', cal:60, prot:0.3, carb:14, fat:0.2, portionQty:2, portionUnit:'tbsp' },
+    { id:'soy-sauce', name:'Soy sauce (1 tbsp)', cal:10, prot:1.3, carb:1, fat:0, portionQty:1, portionUnit:'tbsp' },
+    { id:'coconut-milk', name:'Coconut milk, canned (1/4 cup)', cal:110, prot:1, carb:2, fat:12, portionQty:0.25, portionUnit:'cup' },
   ];
+  const foodDBById = {};
+  foodDB.forEach(f => { if(f.id) foodDBById[f.id] = f; });
+
+  // Computes a recipe's total nutrition from its macroIngredients — the same
+  // foodDB entries food-logging search uses — instead of a hand-typed guess,
+  // so a recipe's numbers stay consistent with what logging those same
+  // ingredients manually would show. Each macroIngredient's unit must match
+  // its foodDB entry's own portionUnit (recipes are authored that way on
+  // purpose) so no general unit-conversion system is needed.
+  function computeRecipeNutrition(macroIngredients, servings){
+    const totals = { cal:0, prot:0, carb:0, fat:0 };
+    (macroIngredients || []).forEach(ing => {
+      const ref = foodDBById[ing.ref];
+      if(!ref){ console.warn('Recipe nutrition: unknown foodDB ref', ing.ref); return; }
+      if(ref.portionUnit !== ing.unit){ console.warn('Recipe nutrition: unit mismatch for', ing.ref, '- expected', ref.portionUnit, 'got', ing.unit); return; }
+      const mult = ing.qty / ref.portionQty;
+      totals.cal += ref.cal * mult;
+      totals.prot += ref.prot * mult;
+      totals.carb += ref.carb * mult;
+      totals.fat += ref.fat * mult;
+    });
+    const s = servings || 1;
+    return { cal: Math.round(totals.cal / s), prot: Math.round(totals.prot / s), carb: Math.round(totals.carb / s), fat: Math.round(totals.fat / s) };
+  }
 
   // ---------- pantry ----------
   // Pantry items were originally plain strings; they're now objects
@@ -2000,9 +2113,49 @@
   // items can carry macro data. Old string entries are migrated on read.
   function getPantry(){
     const raw = safeGet('il_pantry', []);
-    return raw.map(item => typeof item === 'string' ? { name: item } : item);
+    return raw.map(item => {
+      const obj = typeof item === 'string' ? { name: item } : item;
+      if(!obj.qty || obj.qty < 1) obj.qty = 1;
+      return obj;
+    });
   }
   function setPantry(items){ safeSet('il_pantry', items); }
+
+  // Shared by manual add, barcode scan, and "mark bought" — adding
+  // something already in the pantry increments its quantity instead of
+  // silently doing nothing (the old behavior: a second can of the same
+  // thing just vanished because of a same-name dedupe check).
+  function addToPantry(name, qty, extra){
+    const items = getPantry();
+    const existing = items.find(x => x.name.toLowerCase() === name.toLowerCase());
+    if(existing){
+      existing.qty = (existing.qty || 1) + (qty || 1);
+    } else {
+      items.push(Object.assign({ name, qty: qty || 1 }, extra || {}));
+    }
+    setPantry(items);
+    return existing ? { added:false, qty: existing.qty } : { added:true, qty: qty || 1 };
+  }
+
+  // Rough grocery-aisle grouping so a long pantry list doesn't have to be
+  // scanned top to bottom — each category collapses into its own header.
+  const PANTRY_CATEGORIES = [
+    { label:'Meat & Seafood', words:['chicken','turkey','beef','steak','sirloin','pork','bacon','sausage','ham','salmon','tuna','shrimp','cod','tilapia','halibut','fish','jerky','meatball'] },
+    { label:'Dairy & Eggs', words:['egg','milk','yogurt','cheese','butter','cream'] },
+    { label:'Produce', words:['banana','apple','orange','grape','berry','berries','spinach','kale','lettuce','broccoli','cauliflower','pepper','onion','tomato','cucumber','zucchini','avocado','garlic','potato','asparagus','carrot','watermelon','fruit','vegetable','veggie'] },
+    { label:'Grains & Bread', words:['rice','oats','oatmeal','quinoa','pasta','bread','bagel','tortilla','muffin','cereal','pancake','waffle','rice cake'] },
+    { label:'Beans & Legumes', words:['bean','beans','chickpea','chickpeas','lentil','lentils','hummus','edamame'] },
+    { label:'Nuts & Seeds', words:['almond','walnut','cashew','peanut','nut','seed','chia','flax'] },
+    { label:'Condiments & Sauces', words:['salsa','mayo','mayonnaise','mustard','ketchup','soy sauce','bbq','dressing','marinara','vinaigrette','sauce','oil','vinegar','honey','syrup'] },
+    { label:'Frozen', words:['frozen','ice cream'] },
+    { label:'Pantry & Dry Goods', words:['protein powder','whey','granola','flour','sugar','breadcrumbs','chocolate chip','popcorn','pretzel','chip','bar','cracker'] },
+  ];
+  function categorizePantryItem(name){
+    const n = name.toLowerCase();
+    const hit = PANTRY_CATEGORIES.find(cat => cat.words.some(w => n.includes(w)));
+    return hit ? hit.label : 'Other';
+  }
+  let expandedPantryCategories = new Set();
 
   function normWord(w){ return w.trim().toLowerCase(); }
   function ingredientHasPantryItem(ingredientText, pantryName){
@@ -2070,19 +2223,57 @@
       box.innerHTML = '<span class="pantry-empty">Nothing logged yet — add what you have on hand above.</span>';
       return;
     }
+    const groups = {};
     items.forEach((item, idx) => {
-      const chip = document.createElement('div');
-      chip.className = 'pantry-chip';
-      chip.innerHTML = '<span></span><button aria-label="Remove">×</button>';
-      chip.querySelector('span').textContent = item.name;
-      chip.querySelector('button').addEventListener('click', () => {
-        const all = getPantry();
-        all.splice(idx, 1);
-        setPantry(all);
-        renderPantry();
-        renderRecipes();
+      const cat = categorizePantryItem(item.name);
+      (groups[cat] = groups[cat] || []).push({ item, idx });
+    });
+    const order = PANTRY_CATEGORIES.map(c => c.label).concat('Other');
+    order.filter(cat => groups[cat]).forEach(cat => {
+      const entries = groups[cat];
+      const group = document.createElement('div');
+      group.className = 'pantry-group' + (expandedPantryCategories.has(cat) ? ' open' : '');
+      group.innerHTML = '<div class="pantry-group-head"><span class="pg-label"></span><span class="pg-count"></span><span class="chev">▾</span></div><div class="pantry-chips-inner"></div>';
+      group.querySelector('.pg-label').textContent = cat;
+      group.querySelector('.pg-count').textContent = entries.length;
+      const inner = group.querySelector('.pantry-chips-inner');
+      entries.forEach(({ item, idx }) => {
+        const qty = item.qty || 1;
+        const chip = document.createElement('div');
+        chip.className = 'pantry-chip';
+        chip.innerHTML = '<span class="pc-name"></span>' +
+          (qty > 1 ? '<span class="pc-qty"></span><button class="pc-minus" aria-label="Use one">−</button>' : '') +
+          '<button class="pc-remove" aria-label="Remove">×</button>';
+        chip.querySelector('.pc-name').textContent = item.name;
+        if(qty > 1){
+          chip.querySelector('.pc-qty').textContent = '×' + qty;
+          chip.querySelector('.pc-minus').addEventListener('click', () => {
+            const all = getPantry();
+            const cur = all[idx];
+            if(cur){
+              cur.qty = (cur.qty || 1) - 1;
+              if(cur.qty <= 0) all.splice(idx, 1);
+              setPantry(all);
+              renderPantry();
+              renderRecipes();
+            }
+          });
+        }
+        chip.querySelector('.pc-remove').addEventListener('click', () => {
+          const all = getPantry();
+          all.splice(idx, 1);
+          setPantry(all);
+          renderPantry();
+          renderRecipes();
+        });
+        inner.appendChild(chip);
       });
-      box.appendChild(chip);
+      group.querySelector('.pantry-group-head').addEventListener('click', () => {
+        if(expandedPantryCategories.has(cat)) expandedPantryCategories.delete(cat);
+        else expandedPantryCategories.add(cat);
+        renderPantry();
+      });
+      box.appendChild(group);
     });
   }
 
@@ -2090,36 +2281,37 @@
   document.getElementById('pantryInput').addEventListener('keydown', function(e){ if(e.key === 'Enter'){ e.preventDefault(); addPantryItem(); } });
   function addPantryItem(){
     const input = document.getElementById('pantryInput');
+    const qtyInput = document.getElementById('pantryQty');
     const val = input.value.trim();
     if(!val) return;
-    const items = getPantry();
+    let qty = parseInt(qtyInput.value, 10);
+    if(!qty || qty < 1) qty = 1;
     val.split(',').map(v => v.trim()).filter(Boolean).forEach(v => {
-      if(!items.some(x => x.name.toLowerCase() === v.toLowerCase())) items.push({ name: v });
+      addToPantry(v, qty);
+      expandedPantryCategories.add(categorizePantryItem(v));
     });
-    setPantry(items);
     input.value = '';
+    qtyInput.value = '1';
     renderPantry();
     renderRecipes();
   }
 
   function addPantryProduct(product){
-    const items = getPantry();
     const displayName = product.name + (product.brand ? ' (' + product.brand + ')' : '');
-    const exists = items.some(x => (product.barcode && x.barcode === product.barcode) || x.name.toLowerCase() === displayName.toLowerCase());
-    if(!exists){
-      items.push({ name: displayName, barcode: product.barcode, per100g: product.per100g, perServing: product.perServing, servingSize: product.servingSize });
-      setPantry(items);
-      renderPantry();
-      renderRecipes();
-    }
-    return !exists;
+    const items = getPantry();
+    const existing = items.find(x => (product.barcode && x.barcode === product.barcode) || x.name.toLowerCase() === displayName.toLowerCase());
+    const result = addToPantry(displayName, 1, existing ? undefined : { barcode: product.barcode, per100g: product.per100g, perServing: product.perServing, servingSize: product.servingSize });
+    expandedPantryCategories.add(categorizePantryItem(displayName));
+    renderPantry();
+    renderRecipes();
+    return result;
   }
 
   document.getElementById('pantryScanBtn').addEventListener('click', function(){
     openBarcodeModal({
       onUse: function(product){
-        const added = addPantryProduct(product);
-        showAlert(added ? ('Added "' + product.name + '" to your pantry.') : ('"' + product.name + '" is already in your pantry.'));
+        const result = addPantryProduct(product);
+        showAlert(result.added ? ('Added "' + product.name + '" to your pantry.') : ('Added another "' + product.name + '" — you now have ' + result.qty + '.'));
       },
       onManual: function(){
         document.getElementById('pantryInput').focus();
@@ -2206,11 +2398,8 @@
           const all = getShopList();
           all.splice(idx, 1);
           setShopList(all);
-          const pantryItems = getPantry();
-          if(!pantryItems.some(p => p.name.toLowerCase() === item.name.toLowerCase())){
-            pantryItems.push({ name: item.name });
-            setPantry(pantryItems);
-          }
+          addToPantry(item.name, 1);
+          expandedPantryCategories.add(categorizePantryItem(item.name));
           renderShopList();
           renderPantry();
           renderRecipes();
@@ -2409,44 +2598,216 @@
   });
 
   // ---------- recipes ----------
+  // Every recipe's macros come from computeRecipeNutrition(macroIngredients,
+  // servings) below the array — not hand-typed — so they stay consistent
+  // with the same foodDB entries food logging uses. `ingredients` stays
+  // free text for display and pantry-matching (recipeMatch,
+  // pantryItemsConsumedByRecipe, addMissingToShopList all still read it
+  // exactly as before); `macroIngredients` is the parallel structured data
+  // that only the nutrition calculator reads.
   const recipes = [
-    { name:'Greek Yogurt Power Bowl', tag:'breakfast', cal:360, prot:34, carb:38, fat:9,
+    { name:'Greek Yogurt Power Bowl', tag:'breakfast', servings:1,
       ingredients:['1.5 cups plain nonfat Greek yogurt','1/2 cup berries','2 tbsp granola','1 tbsp honey','1 tbsp chopped walnuts'],
-      steps:['Spoon yogurt into a bowl.','Top with berries, granola and walnuts.','Drizzle with honey and serve.'], servings:1 },
-    { name:'Egg White & Veggie Scramble', tag:'breakfast', cal:310, prot:32, carb:16, fat:11,
+      steps:['Spoon yogurt into a bowl.','Top with berries, granola and walnuts.','Drizzle with honey and serve.'],
+      macroIngredients:[{qty:1.5,unit:'cup',ref:'greek-yogurt-nonfat'},{qty:0.5,unit:'cup',ref:'blueberries'},{qty:2,unit:'tbsp',ref:'granola'},{qty:1,unit:'tbsp',ref:'honey'},{qty:0.5,unit:'oz',ref:'walnuts'}] },
+    { name:'Egg White & Veggie Scramble', tag:'breakfast', servings:1,
       ingredients:['1 cup liquid egg whites','2 whole eggs','1 cup spinach','1/2 cup diced bell pepper','1/4 cup diced onion','1 oz shredded cheddar','Salt, pepper, hot sauce'],
-      steps:['Sauté onion and pepper 3 min, add spinach until wilted.','Add eggs and egg whites, scramble until just set.','Top with cheese off heat and season to taste.'], servings:1 },
-    { name:'Protein Overnight Oats', tag:'breakfast', cal:390, prot:32, carb:46, fat:9,
+      steps:['Sauté onion and pepper 3 min, add spinach until wilted.','Add eggs and egg whites, scramble until just set.','Top with cheese off heat and season to taste.'],
+      macroIngredients:[{qty:1,unit:'cup',ref:'egg-whites-liquid'},{qty:2,unit:'whole',ref:'egg'},{qty:1,unit:'cup',ref:'spinach-raw'},{qty:0.5,unit:'whole',ref:'bell-pepper'},{qty:0.25,unit:'whole',ref:'onion'},{qty:1,unit:'oz',ref:'cheddar-cheese'}] },
+    { name:'Protein Overnight Oats', tag:'breakfast', servings:1,
       ingredients:['1/2 cup rolled oats','1 scoop whey protein','3/4 cup milk','1 tbsp peanut butter','1/2 banana, sliced'],
-      steps:['Whisk protein powder into milk until smooth.','Combine with oats in a jar, stir well.','Top with peanut butter and banana, refrigerate overnight.'], servings:1 },
-    { name:'Grilled Chicken & Rice Bowl', tag:'lunch', cal:520, prot:46, carb:55, fat:12,
+      steps:['Whisk protein powder into milk until smooth.','Combine with oats in a jar, stir well.','Top with peanut butter and banana, refrigerate overnight.'],
+      macroIngredients:[{qty:0.5,unit:'cup',ref:'oats-dry'},{qty:1,unit:'scoop',ref:'whey-protein'},{qty:0.75,unit:'cup',ref:'milk-2pct'},{qty:1,unit:'tbsp',ref:'peanut-butter'},{qty:0.5,unit:'whole',ref:'banana'}] },
+    { name:'Grilled Chicken & Rice Bowl', tag:'lunch', servings:1,
       ingredients:['6 oz chicken breast','1 cup cooked jasmine rice','1 cup steamed broccoli','1 tbsp olive oil','Garlic, soy sauce, lime'],
-      steps:['Season chicken and grill or pan-sear 6-7 min per side.','Slice and serve over rice with broccoli.','Drizzle with olive oil, soy sauce and a squeeze of lime.'], servings:1 },
-    { name:'Turkey Chili', tag:'lunch', cal:420, prot:38, carb:34, fat:14,
+      steps:['Season chicken and grill or pan-sear 6-7 min per side.','Slice and serve over rice with broccoli.','Drizzle with olive oil, soy sauce and a squeeze of lime.'],
+      macroIngredients:[{qty:6,unit:'oz',ref:'chicken-breast'},{qty:1,unit:'cup',ref:'white-rice-cooked'},{qty:1,unit:'cup',ref:'broccoli-cooked'},{qty:1,unit:'tbsp',ref:'olive-oil'}] },
+    { name:'Turkey Chili', tag:'lunch', servings:2,
       ingredients:['8 oz ground turkey (93/7)','1/2 can kidney beans, drained','1/2 can diced tomatoes','1/4 onion, diced','1/2 tbsp chili powder, cumin, garlic'],
-      steps:['Brown turkey with onion until cooked through.','Add beans, tomatoes and spices.','Simmer 15–20 minutes, stirring occasionally.'], servings:2 },
-    { name:'Tuna Salad Wrap', tag:'lunch', cal:380, prot:35, carb:32, fat:12,
+      steps:['Brown turkey with onion until cooked through.','Add beans, tomatoes and spices.','Simmer 15–20 minutes, stirring occasionally.'],
+      macroIngredients:[{qty:8,unit:'oz',ref:'ground-turkey-93-7'},{qty:0.75,unit:'cup',ref:'kidney-beans-cooked'},{qty:2,unit:'whole',ref:'tomato'},{qty:0.25,unit:'whole',ref:'onion'}] },
+    { name:'Tuna Salad Wrap', tag:'lunch', servings:1,
       ingredients:['1 can tuna in water, drained','2 tbsp light mayo or plain yogurt','1 whole wheat tortilla','Lettuce, tomato, red onion'],
-      steps:['Mix tuna with mayo or yogurt, season to taste.','Spread onto tortilla with lettuce, tomato and onion.','Roll tightly and slice in half.'], servings:1 },
-    { name:'Chicken Fajita Bowl', tag:'lunch', cal:480, prot:42, carb:42, fat:14,
+      steps:['Mix tuna with mayo or yogurt, season to taste.','Spread onto tortilla with lettuce, tomato and onion.','Roll tightly and slice in half.'],
+      macroIngredients:[{qty:1,unit:'can',ref:'tuna-canned'},{qty:2,unit:'tbsp',ref:'mayonnaise'},{qty:1,unit:'whole',ref:'tortilla-wheat'}] },
+    { name:'Chicken Fajita Bowl', tag:'lunch', servings:1,
       ingredients:['6 oz chicken breast, sliced','1 cup bell pepper & onion, sliced','2/3 cup cooked rice','2 tbsp salsa','1 tbsp olive oil','Fajita seasoning'],
-      steps:['Sauté peppers and onion in oil until soft.','Add seasoned chicken, cook through.','Serve over rice topped with salsa.'], servings:1 },
-    { name:'Baked Salmon & Sweet Potato', tag:'dinner', cal:500, prot:38, carb:38, fat:20,
+      steps:['Sauté peppers and onion in oil until soft.','Add seasoned chicken, cook through.','Serve over rice topped with salsa.'],
+      macroIngredients:[{qty:6,unit:'oz',ref:'chicken-breast'},{qty:0.6,unit:'whole',ref:'bell-pepper'},{qty:0.3,unit:'whole',ref:'onion'},{qty:0.667,unit:'cup',ref:'white-rice-cooked'},{qty:2,unit:'tbsp',ref:'salsa'},{qty:1,unit:'tbsp',ref:'olive-oil'}] },
+    { name:'Baked Salmon & Sweet Potato', tag:'dinner', servings:1,
       ingredients:['6 oz salmon fillet','1 medium sweet potato, cubed','1 cup asparagus','1 tbsp olive oil','Lemon, salt, pepper'],
-      steps:['Roast sweet potato at 425°F for 15 min.','Add salmon and asparagus to the pan, roast 12-15 min more.','Finish with lemon juice and a drizzle of olive oil.'], servings:1 },
-    { name:'Turkey & Broccoli Stir-fry', tag:'dinner', cal:440, prot:38, carb:34, fat:15,
+      steps:['Roast sweet potato at 425°F for 15 min.','Add salmon and asparagus to the pan, roast 12-15 min more.','Finish with lemon juice and a drizzle of olive oil.'],
+      macroIngredients:[{qty:6,unit:'oz',ref:'salmon'},{qty:1,unit:'whole',ref:'sweet-potato'},{qty:1,unit:'cup',ref:'asparagus'},{qty:1,unit:'tbsp',ref:'olive-oil'}] },
+    { name:'Turkey & Broccoli Stir-fry', tag:'dinner', servings:1,
       ingredients:['6 oz ground turkey (93/7)','2 cups broccoli florets','2/3 cup cooked rice','2 tbsp soy sauce','1 tsp cornstarch','Garlic, ginger'],
-      steps:['Brown turkey in a hot pan, breaking it up, set aside.','Stir-fry broccoli with garlic and ginger until crisp-tender.','Return turkey, add soy sauce mixed with cornstarch, toss until glossy. Serve over rice.'], servings:1 },
-    { name:'Turkey Meatballs & Zucchini Noodles', tag:'dinner', cal:410, prot:39, carb:20, fat:19,
+      steps:['Brown turkey in a hot pan, breaking it up, set aside.','Stir-fry broccoli with garlic and ginger until crisp-tender.','Return turkey, add soy sauce mixed with cornstarch, toss until glossy. Serve over rice.'],
+      macroIngredients:[{qty:6,unit:'oz',ref:'ground-turkey-93-7'},{qty:2,unit:'cup',ref:'broccoli-cooked'},{qty:0.667,unit:'cup',ref:'white-rice-cooked'},{qty:2,unit:'tbsp',ref:'soy-sauce'}] },
+    { name:'Turkey Meatballs & Zucchini Noodles', tag:'dinner', servings:2,
       ingredients:['8 oz ground turkey','2 tbsp breadcrumbs','1 egg','1 zucchini, spiralized','1/2 cup marinara sauce','Parmesan, Italian herbs'],
-      steps:['Mix turkey, breadcrumbs, egg and herbs; form into about 8 small meatballs.','Bake at 400°F for 18-20 min, or pan-sear until cooked through.','Warm marinara, toss with zucchini noodles, top with meatballs and parmesan.'], servings:2 },
-    { name:'Cottage Cheese & Berries', tag:'snack', cal:220, prot:26, carb:18, fat:5,
+      steps:['Mix turkey, breadcrumbs, egg and herbs; form into about 8 small meatballs.','Bake at 400°F for 18-20 min, or pan-sear until cooked through.','Warm marinara, toss with zucchini noodles, top with meatballs and parmesan.'],
+      macroIngredients:[{qty:8,unit:'oz',ref:'ground-turkey-93-7'},{qty:2,unit:'tbsp',ref:'breadcrumbs'},{qty:1,unit:'whole',ref:'egg'},{qty:1,unit:'whole',ref:'zucchini-whole'},{qty:0.5,unit:'cup',ref:'marinara-sauce'},{qty:1,unit:'tbsp',ref:'parmesan-cheese'}] },
+    { name:'Cottage Cheese & Berries', tag:'snack', servings:1,
       ingredients:['1 cup low-fat cottage cheese','1/2 cup mixed berries','1 tsp honey (optional)'],
-      steps:['Spoon cottage cheese into a bowl.','Top with berries and honey.'], servings:1 },
-    { name:'Protein Smoothie', tag:'snack', cal:290, prot:30, carb:30, fat:6,
+      steps:['Spoon cottage cheese into a bowl.','Top with berries and honey.'],
+      macroIngredients:[{qty:1,unit:'cup',ref:'cottage-cheese'},{qty:0.5,unit:'cup',ref:'blueberries'}] },
+    { name:'Protein Smoothie', tag:'snack', servings:1,
       ingredients:['1 scoop whey protein','1 banana','1 cup unsweetened almond milk','1/2 cup ice','1 tbsp peanut butter (optional)'],
-      steps:['Add all ingredients to a blender.','Blend until smooth, about 30-45 seconds.'], servings:1 },
+      steps:['Add all ingredients to a blender.','Blend until smooth, about 30-45 seconds.'],
+      macroIngredients:[{qty:1,unit:'scoop',ref:'whey-protein'},{qty:1,unit:'whole',ref:'banana'},{qty:1,unit:'cup',ref:'almond-milk'}] },
+    { name:'Blender Protein Pancakes', tag:'breakfast', servings:1,
+      ingredients:['1/2 cup rolled oats','1/2 cup cottage cheese','2 eggs','1/2 tsp baking powder','Cinnamon'],
+      steps:['Blend all ingredients until smooth batter forms.','Cook 3-4 small pancakes in a nonstick pan over medium heat, about 2 min per side.','Serve plain or with a handful of berries.'],
+      macroIngredients:[{qty:0.5,unit:'cup',ref:'oats-dry'},{qty:0.5,unit:'cup',ref:'cottage-cheese'},{qty:2,unit:'whole',ref:'egg'}] },
+    { name:'Turkey Sausage Egg Muffins', tag:'breakfast', servings:3,
+      ingredients:['6 oz ground turkey breakfast sausage','6 eggs','1/4 cup diced bell pepper','1/4 cup diced onion','Salt, pepper'],
+      steps:['Preheat oven to 375°F. Brown sausage, breaking it up, and divide among a greased 6-cup muffin tin with the peppers and onion.','Whisk eggs, pour over, season.','Bake 18-20 min until set. Two muffins per serving — refrigerate the rest and reheat as needed.'],
+      macroIngredients:[{qty:6,unit:'oz',ref:'turkey-sausage'},{qty:6,unit:'whole',ref:'egg'},{qty:0.3,unit:'whole',ref:'bell-pepper'},{qty:0.3,unit:'whole',ref:'onion'}] },
+    { name:'PB Banana Protein Shake Bowl', tag:'breakfast', servings:1,
+      ingredients:['1 scoop whey protein','1 banana','1 cup unsweetened almond milk','1 tbsp peanut butter','2 tbsp granola'],
+      steps:['Blend protein, banana, almond milk and peanut butter until thick.','Pour into a bowl and top with granola.'],
+      macroIngredients:[{qty:1,unit:'scoop',ref:'whey-protein'},{qty:1,unit:'whole',ref:'banana'},{qty:1,unit:'cup',ref:'almond-milk'},{qty:1,unit:'tbsp',ref:'peanut-butter'},{qty:2,unit:'tbsp',ref:'granola'}] },
+    { name:'Mediterranean Chickpea & Tuna Salad', tag:'lunch', servings:1,
+      ingredients:['1 can tuna in water, drained','1/2 can chickpeas, drained','1/4 cup diced cucumber','1/4 cup diced tomato','2 tbsp crumbled feta','1 tbsp olive oil','Lemon juice'],
+      steps:['Combine tuna, chickpeas, cucumber and tomato in a bowl.','Toss with olive oil, lemon juice, salt and pepper.','Top with feta.'],
+      macroIngredients:[{qty:1,unit:'can',ref:'tuna-canned'},{qty:0.5,unit:'cup',ref:'chickpeas-cooked'},{qty:0.25,unit:'cup',ref:'cucumber'},{qty:0.3,unit:'whole',ref:'tomato'},{qty:2,unit:'tbsp',ref:'feta-cheese'},{qty:1,unit:'tbsp',ref:'olive-oil'}] },
+    { name:'Turkey & Avocado Lettuce Wraps', tag:'lunch', servings:1,
+      ingredients:['6 oz sliced deli turkey','1/2 avocado, sliced','4 large lettuce leaves','2 tbsp hummus','Sliced red bell pepper'],
+      steps:['Spread hummus on each lettuce leaf.','Layer turkey, avocado and bell pepper.','Roll or fold and eat.'],
+      macroIngredients:[{qty:6,unit:'oz',ref:'deli-turkey'},{qty:0.5,unit:'whole',ref:'avocado'},{qty:1,unit:'cup',ref:'lettuce'},{qty:2,unit:'tbsp',ref:'hummus'},{qty:0.3,unit:'whole',ref:'bell-pepper'}] },
+    { name:'Shrimp & Quinoa Power Bowl', tag:'lunch', servings:1,
+      ingredients:['6 oz peeled shrimp','2/3 cup cooked quinoa','1 cup steamed broccoli','1 tbsp olive oil','Garlic, lemon'],
+      steps:['Season shrimp with garlic and pepper, sauté in half the oil 2-3 min per side until pink.','Serve over quinoa with broccoli.','Drizzle with remaining oil and a squeeze of lemon.'],
+      macroIngredients:[{qty:6,unit:'oz',ref:'shrimp'},{qty:0.667,unit:'cup',ref:'quinoa-cooked'},{qty:1,unit:'cup',ref:'broccoli-cooked'},{qty:1,unit:'tbsp',ref:'olive-oil'}] },
+    { name:'Chicken & White Bean Soup', tag:'lunch', servings:2,
+      ingredients:['8 oz chicken breast, diced','1 can white beans, drained','2 cups chicken broth','1 cup chopped kale','1/4 onion, diced','Garlic, thyme'],
+      steps:['Sauté onion and garlic 2 min.','Add chicken, cook until no longer pink.','Add broth and beans, simmer 10 min, then stir in kale until wilted. Season to taste.'],
+      macroIngredients:[{qty:8,unit:'oz',ref:'chicken-breast'},{qty:1.5,unit:'cup',ref:'white-beans-cooked'},{qty:2,unit:'cup',ref:'chicken-broth'},{qty:1,unit:'cup',ref:'kale-raw'},{qty:0.25,unit:'whole',ref:'onion'}] },
+    { name:'Sheet-Pan Lemon Chicken & Veggies', tag:'dinner', servings:1,
+      ingredients:['6 oz chicken breast','1 cup broccoli florets','1 cup baby potatoes, halved','1 tbsp olive oil','Lemon, garlic, Italian herbs'],
+      steps:['Preheat oven to 425°F. Toss chicken and veggies with oil, garlic and herbs on a sheet pan.','Roast 22-25 min until chicken hits 165°F.','Finish with a squeeze of lemon.'],
+      macroIngredients:[{qty:6,unit:'oz',ref:'chicken-breast'},{qty:1,unit:'cup',ref:'broccoli-cooked'},{qty:1.2,unit:'whole',ref:'white-potato'},{qty:1,unit:'tbsp',ref:'olive-oil'}] },
+    { name:'Garlic Shrimp Zoodles', tag:'dinner', servings:1,
+      ingredients:['8 oz peeled shrimp','2 zucchini, spiralized','1 tbsp olive oil','Garlic, red pepper flakes','Parmesan, lemon'],
+      steps:['Sauté garlic in oil 30 sec, add shrimp, cook 2-3 min per side until pink, then remove.','Add zoodles to the pan, toss 1-2 min just to warm through.','Return shrimp, toss with lemon and parmesan.'],
+      macroIngredients:[{qty:8,unit:'oz',ref:'shrimp'},{qty:2,unit:'whole',ref:'zucchini-whole'},{qty:1,unit:'tbsp',ref:'olive-oil'},{qty:1,unit:'tbsp',ref:'parmesan-cheese'}] },
+    { name:'Beef & Broccoli Skillet', tag:'dinner', servings:2,
+      ingredients:['10 oz lean sirloin strips','3 cups broccoli florets','2/3 cup cooked rice','3 tbsp soy sauce','1 tsp cornstarch','Garlic, ginger'],
+      steps:['Sear beef in a hot pan 2-3 min, remove.','Stir-fry broccoli with garlic and ginger until crisp-tender.','Return beef, add soy sauce mixed with cornstarch, toss until glossy. Serve over rice.'],
+      macroIngredients:[{qty:10,unit:'oz',ref:'beef-sirloin'},{qty:3,unit:'cup',ref:'broccoli-cooked'},{qty:0.667,unit:'cup',ref:'white-rice-cooked'},{qty:3,unit:'tbsp',ref:'soy-sauce'}] },
+    { name:'Baked Cod with Asparagus', tag:'dinner', servings:1,
+      ingredients:['7 oz cod fillet','1 bunch asparagus, trimmed','1 tbsp olive oil','Lemon, garlic','1/2 cup cooked rice'],
+      steps:['Preheat oven to 400°F. Place cod and asparagus on a lined sheet pan, drizzle with oil, garlic, salt and pepper.','Bake 12-15 min until the cod flakes easily.','Serve with rice and lemon.'],
+      macroIngredients:[{qty:7,unit:'oz',ref:'cod'},{qty:2,unit:'cup',ref:'asparagus'},{qty:1,unit:'tbsp',ref:'olive-oil'},{qty:0.5,unit:'cup',ref:'white-rice-cooked'}] },
+    { name:'One-Pan Turkey Taco Skillet', tag:'dinner', servings:2,
+      ingredients:['10 oz ground turkey (93/7)','1/2 cup corn','1/2 can black beans, drained','1/2 cup salsa','Taco seasoning','2/3 cup cooked rice'],
+      steps:['Brown turkey with taco seasoning until cooked through.','Stir in corn, beans, salsa and rice.','Simmer 5 min until heated through.'],
+      macroIngredients:[{qty:10,unit:'oz',ref:'ground-turkey-93-7'},{qty:0.5,unit:'cup',ref:'corn-kernels'},{qty:0.5,unit:'cup',ref:'black-beans-cooked'},{qty:8,unit:'tbsp',ref:'salsa'},{qty:0.667,unit:'cup',ref:'white-rice-cooked'}] },
+    { name:'Rice Cakes with PB & Banana', tag:'snack', servings:1,
+      ingredients:['2 rice cakes','2 tbsp peanut butter','1/2 banana, sliced','Cinnamon'],
+      steps:['Spread peanut butter on the rice cakes.','Top with banana slices and a dash of cinnamon.'],
+      macroIngredients:[{qty:2,unit:'whole',ref:'rice-cake'},{qty:2,unit:'tbsp',ref:'peanut-butter'},{qty:0.5,unit:'whole',ref:'banana'}] },
+    { name:'Hard-Boiled Eggs & Apple', tag:'snack', servings:1,
+      ingredients:['2 eggs','1 apple, sliced'],
+      steps:['Boil eggs 9-10 min, cool in ice water and peel.','Slice apple and serve alongside.'],
+      macroIngredients:[{qty:2,unit:'whole',ref:'egg'},{qty:1,unit:'whole',ref:'apple'}] },
+    { name:'No-Bake Protein Energy Balls', tag:'snack', servings:6,
+      ingredients:['1 cup rolled oats','1 scoop whey protein','1/3 cup peanut butter','2 tbsp honey','2 tbsp mini chocolate chips','2 tbsp water'],
+      steps:['Mix all ingredients in a bowl until a sticky dough forms, adding water as needed.','Roll into 12 balls.','Refrigerate at least 30 min to firm up — 2 balls per serving.'],
+      macroIngredients:[{qty:1,unit:'cup',ref:'oats-dry'},{qty:1,unit:'scoop',ref:'whey-protein'},{qty:5.33,unit:'tbsp',ref:'peanut-butter'},{qty:2,unit:'tbsp',ref:'honey'},{qty:2,unit:'tbsp',ref:'mini-chocolate-chips'}] },
+    { name:'Edamame & Sea Salt Bowl', tag:'snack', servings:1,
+      ingredients:['1.5 cups frozen shelled edamame','Sea salt','Chili flakes (optional)'],
+      steps:['Steam or microwave edamame according to package until hot.','Toss with sea salt and chili flakes if using.'],
+      macroIngredients:[{qty:1.5,unit:'cup',ref:'edamame'}] },
+    { name:'Spinach & Feta Egg Muffins', tag:'breakfast', servings:3,
+      ingredients:['6 eggs','1 cup chopped spinach','1/4 cup crumbled feta','1/4 cup diced tomato','Salt, pepper'],
+      steps:['Preheat oven to 375°F. Divide spinach, tomato and feta among a greased 6-cup muffin tin.','Whisk eggs, season, and pour over.','Bake 16-18 min until set — two muffins per serving.'],
+      macroIngredients:[{qty:6,unit:'whole',ref:'egg'},{qty:1,unit:'cup',ref:'spinach-raw'},{qty:4,unit:'tbsp',ref:'feta-cheese'},{qty:0.3,unit:'whole',ref:'tomato'}] },
+    { name:'Stovetop PB Oats', tag:'breakfast', servings:1,
+      ingredients:['1/2 cup rolled oats','1 cup milk','1 tbsp peanut butter','1 scoop whey protein','Cinnamon'],
+      steps:['Simmer oats in milk 4-5 min, stirring, until thick.','Off heat, stir in peanut butter and protein powder.','Top with a dash of cinnamon.'],
+      macroIngredients:[{qty:0.5,unit:'cup',ref:'oats-dry'},{qty:1,unit:'cup',ref:'milk-2pct'},{qty:1,unit:'tbsp',ref:'peanut-butter'},{qty:1,unit:'scoop',ref:'whey-protein'}] },
+    { name:'Savory Cottage Cheese Toast', tag:'breakfast', servings:1,
+      ingredients:['1 slice whole wheat bread, toasted','1/2 cup cottage cheese','1/2 tomato, sliced','Everything bagel seasoning'],
+      steps:['Toast the bread.','Top with cottage cheese and tomato slices.','Finish with a sprinkle of seasoning.'],
+      macroIngredients:[{qty:1,unit:'slice',ref:'whole-wheat-bread'},{qty:0.5,unit:'cup',ref:'cottage-cheese'},{qty:0.5,unit:'whole',ref:'tomato'}] },
+    { name:'Turkey Sausage Breakfast Burrito', tag:'breakfast', servings:1,
+      ingredients:['4 oz turkey breakfast sausage','2 eggs','1 whole wheat tortilla','2 tbsp salsa','1 oz shredded cheddar'],
+      steps:['Brown sausage, breaking it up.','Scramble in the eggs until just set.','Fill the tortilla, top with salsa and cheese, and roll.'],
+      macroIngredients:[{qty:4,unit:'oz',ref:'turkey-sausage'},{qty:2,unit:'whole',ref:'egg'},{qty:1,unit:'whole',ref:'tortilla-wheat'},{qty:2,unit:'tbsp',ref:'salsa'},{qty:1,unit:'oz',ref:'cheddar-cheese'}] },
+    { name:'Chia Protein Pudding', tag:'breakfast', servings:1,
+      ingredients:['3 tbsp chia seeds','1 cup unsweetened almond milk','1 scoop whey protein','1/2 cup berries'],
+      steps:['Whisk chia seeds, almond milk and protein powder together.','Refrigerate at least 2 hours (or overnight) until thickened.','Top with berries before eating.'],
+      macroIngredients:[{qty:3,unit:'tbsp',ref:'chia-seeds'},{qty:1,unit:'cup',ref:'almond-milk'},{qty:1,unit:'scoop',ref:'whey-protein'},{qty:0.5,unit:'cup',ref:'blueberries'}] },
+    { name:'Chicken Caesar-Style Bowl', tag:'lunch', servings:1,
+      ingredients:['6 oz chicken breast, sliced','3 cups chopped romaine','2 tbsp parmesan, grated','2 tbsp balsamic vinaigrette'],
+      steps:['Season and grill or pan-sear chicken 6-7 min per side, slice.','Toss romaine with vinaigrette.','Top with chicken and parmesan.'],
+      macroIngredients:[{qty:6,unit:'oz',ref:'chicken-breast'},{qty:3,unit:'cup',ref:'lettuce'},{qty:2,unit:'tbsp',ref:'parmesan-cheese'},{qty:2,unit:'tbsp',ref:'balsamic-vinaigrette'}] },
+    { name:'Black Bean & Corn Rice Bowl', tag:'lunch', servings:1,
+      ingredients:['1 cup black beans, drained and rinsed','1/2 cup corn','2/3 cup cooked rice','2 tbsp salsa','1/4 avocado, sliced'],
+      steps:['Warm beans and corn together in a pan.','Serve over rice.','Top with salsa and avocado.'],
+      macroIngredients:[{qty:1,unit:'cup',ref:'black-beans-cooked'},{qty:0.5,unit:'cup',ref:'corn-kernels'},{qty:0.667,unit:'cup',ref:'white-rice-cooked'},{qty:2,unit:'tbsp',ref:'salsa'},{qty:0.25,unit:'whole',ref:'avocado'}] },
+    { name:'Salmon & Quinoa Salad', tag:'lunch', servings:1,
+      ingredients:['5 oz salmon fillet','2/3 cup cooked quinoa','2 cups spinach','1/4 cucumber, sliced','1 tbsp olive oil','Lemon'],
+      steps:['Season salmon, pan-sear or bake until just cooked through, about 10-12 min.','Toss spinach, quinoa and cucumber with olive oil and lemon.','Top with the salmon, flaked.'],
+      macroIngredients:[{qty:5,unit:'oz',ref:'salmon'},{qty:0.667,unit:'cup',ref:'quinoa-cooked'},{qty:2,unit:'cup',ref:'spinach-raw'},{qty:0.25,unit:'cup',ref:'cucumber'},{qty:1,unit:'tbsp',ref:'olive-oil'}] },
+    { name:'Turkey & Hummus Wrap', tag:'lunch', servings:1,
+      ingredients:['4 oz sliced deli turkey','1 whole wheat tortilla','3 tbsp hummus','Spinach, shredded carrot'],
+      steps:['Spread hummus over the tortilla.','Layer turkey and greens.','Roll tightly and slice in half.'],
+      macroIngredients:[{qty:4,unit:'oz',ref:'deli-turkey'},{qty:1,unit:'whole',ref:'tortilla-wheat'},{qty:3,unit:'tbsp',ref:'hummus'}] },
+    { name:'Egg Salad Lettuce Cups', tag:'lunch', servings:1,
+      ingredients:['3 eggs, hard-boiled','1 tbsp plain Greek yogurt','1 tsp mustard','4 lettuce leaves'],
+      steps:['Chop eggs and mix with yogurt and mustard.','Season to taste.','Spoon into lettuce leaves to serve.'],
+      macroIngredients:[{qty:3,unit:'whole',ref:'egg'},{qty:0.0625,unit:'cup',ref:'greek-yogurt-nonfat'},{qty:1,unit:'tsp',ref:'mustard'}] },
+    { name:'Shrimp Tacos', tag:'lunch', servings:1,
+      ingredients:['6 oz shrimp, peeled','3 corn tortillas','1/4 cup shredded cabbage or lettuce','2 tbsp salsa','Lime'],
+      steps:['Season shrimp with chili powder and cumin, sauté 2-3 min per side until pink.','Warm tortillas.','Fill with shrimp, cabbage/lettuce and salsa; finish with lime.'],
+      macroIngredients:[{qty:6,unit:'oz',ref:'shrimp'},{qty:3,unit:'whole',ref:'tortilla-corn'},{qty:0.25,unit:'cup',ref:'lettuce'},{qty:2,unit:'tbsp',ref:'salsa'}] },
+    { name:'Honey Garlic Salmon', tag:'dinner', servings:1,
+      ingredients:['6 oz salmon fillet','1 tbsp honey','Garlic','1 cup broccoli','2/3 cup cooked rice'],
+      steps:['Whisk honey and minced garlic; brush over salmon.','Bake at 400°F for 12-15 min until just cooked through.','Serve with steamed broccoli and rice.'],
+      macroIngredients:[{qty:6,unit:'oz',ref:'salmon'},{qty:1,unit:'tbsp',ref:'honey'},{qty:1,unit:'cup',ref:'broccoli-cooked'},{qty:0.667,unit:'cup',ref:'white-rice-cooked'}] },
+    { name:'Chicken & Veggie Stir-fry', tag:'dinner', servings:1,
+      ingredients:['6 oz chicken breast, sliced','1 cup broccoli florets','1/2 bell pepper, sliced','2 tbsp soy sauce','2/3 cup cooked rice'],
+      steps:['Stir-fry chicken in a hot pan until cooked through, about 5-6 min.','Add broccoli and pepper, cook 3-4 min more.','Toss with soy sauce and serve over rice.'],
+      macroIngredients:[{qty:6,unit:'oz',ref:'chicken-breast'},{qty:1,unit:'cup',ref:'broccoli-cooked'},{qty:0.5,unit:'whole',ref:'bell-pepper'},{qty:2,unit:'tbsp',ref:'soy-sauce'},{qty:0.667,unit:'cup',ref:'white-rice-cooked'}] },
+    { name:'Open-Face Turkey Burger', tag:'dinner', servings:1,
+      ingredients:['6 oz ground turkey (93/7)','1 slice whole wheat bread','1 oz cheddar cheese','Lettuce, tomato, onion','1 tsp mustard'],
+      steps:['Form turkey into a patty, season, and pan-sear or grill 5-6 min per side.','Top with cheese to melt.','Serve open-face on the bread with lettuce, tomato, onion and mustard.'],
+      macroIngredients:[{qty:6,unit:'oz',ref:'ground-turkey-93-7'},{qty:1,unit:'slice',ref:'whole-wheat-bread'},{qty:1,unit:'oz',ref:'cheddar-cheese'},{qty:1,unit:'tsp',ref:'mustard'}] },
+    { name:'Baked Tilapia with Broccoli', tag:'dinner', servings:1,
+      ingredients:['6 oz tilapia fillet','1 cup broccoli florets','1 tbsp olive oil','1/2 cup cooked rice','Lemon, paprika'],
+      steps:['Preheat oven to 400°F. Season tilapia and broccoli with oil, lemon and paprika on a sheet pan.','Bake 12-15 min until fish flakes easily.','Serve with rice.'],
+      macroIngredients:[{qty:6,unit:'oz',ref:'tilapia'},{qty:1,unit:'cup',ref:'broccoli-cooked'},{qty:1,unit:'tbsp',ref:'olive-oil'},{qty:0.5,unit:'cup',ref:'white-rice-cooked'}] },
+    { name:'Beef & Sweet Potato Skillet', tag:'dinner', servings:2,
+      ingredients:['10 oz lean sirloin, cubed','1 sweet potato, cubed','2 cups spinach','1 tbsp olive oil','Garlic, rosemary'],
+      steps:['Sear beef in a hot pan 3-4 min, remove.','Cook sweet potato in the same pan until tender, about 8-10 min, adding garlic near the end.','Return beef, stir in spinach until wilted, and serve.'],
+      macroIngredients:[{qty:10,unit:'oz',ref:'beef-sirloin'},{qty:1,unit:'whole',ref:'sweet-potato'},{qty:2,unit:'cup',ref:'spinach-raw'},{qty:1,unit:'tbsp',ref:'olive-oil'}] },
+    { name:'Grilled Shrimp Skewers with Rice', tag:'dinner', servings:1,
+      ingredients:['8 oz shrimp, peeled','1/2 bell pepper, chunked','1 tbsp olive oil','2/3 cup cooked rice','Lemon, garlic'],
+      steps:['Thread shrimp and pepper onto skewers, brush with oil, garlic and lemon.','Grill or broil 2-3 min per side until pink.','Serve over rice.'],
+      macroIngredients:[{qty:8,unit:'oz',ref:'shrimp'},{qty:0.5,unit:'whole',ref:'bell-pepper'},{qty:1,unit:'tbsp',ref:'olive-oil'},{qty:0.667,unit:'cup',ref:'white-rice-cooked'}] },
+    { name:'Greek Yogurt & Almonds', tag:'snack', servings:1,
+      ingredients:['1 cup plain nonfat Greek yogurt','1 oz almonds','1 tsp honey'],
+      steps:['Spoon yogurt into a bowl.','Top with almonds and a drizzle of honey.'],
+      macroIngredients:[{qty:1,unit:'cup',ref:'greek-yogurt-nonfat'},{qty:1,unit:'oz',ref:'almonds'},{qty:0.333,unit:'tbsp',ref:'honey'}] },
+    { name:'Turkey & Cheese Roll-Ups', tag:'snack', servings:1,
+      ingredients:['3 oz sliced deli turkey','1 oz cheddar cheese, sliced','Mustard'],
+      steps:['Lay out turkey slices, top each with a strip of cheese.','Roll up tightly.','Dip in mustard if desired.'],
+      macroIngredients:[{qty:3,unit:'oz',ref:'deli-turkey'},{qty:1,unit:'oz',ref:'cheddar-cheese'}] },
+    { name:'Air-Popped Popcorn', tag:'snack', servings:1,
+      ingredients:['3 cups air-popped popcorn','Salt'],
+      steps:['Pop the popcorn.','Season with salt to taste.'],
+      macroIngredients:[{qty:3,unit:'cup',ref:'popcorn'}] },
+    { name:'Apple & Peanut Butter', tag:'snack', servings:1,
+      ingredients:['1 apple, sliced','1.5 tbsp peanut butter'],
+      steps:['Slice the apple.','Serve with peanut butter for dipping.'],
+      macroIngredients:[{qty:1,unit:'whole',ref:'apple'},{qty:1.5,unit:'tbsp',ref:'peanut-butter'}] },
+    { name:'String Cheese & Grapes', tag:'snack', servings:1,
+      ingredients:['1 string cheese','1 cup grapes'],
+      steps:['Serve string cheese alongside a cup of grapes.'],
+      macroIngredients:[{qty:1,unit:'stick',ref:'string-cheese'},{qty:1,unit:'cup',ref:'grapes'}] },
   ];
+  recipes.forEach(r => Object.assign(r, computeRecipeNutrition(r.macroIngredients, r.servings)));
 
   let activeFilter = 'all';
   const filters = ['all','breakfast','lunch','dinner','snack'];
@@ -2476,6 +2837,10 @@
     renderRecipes();
   });
 
+  function recipeSearchMatches(term){
+    return recipes.filter(r => r.name.toLowerCase().includes(term) || r.ingredients.some(i => i.toLowerCase().includes(term)));
+  }
+
   function renderRecipes(){
     const list = document.getElementById('recipeList');
     list.innerHTML = '';
@@ -2485,6 +2850,19 @@
     }
     const withMatch = shown.map(r => ({ r, m: recipeMatch(r) }));
     const filtered = onlyReady ? withMatch.filter(x => x.m.missing.length === 0) : withMatch;
+
+    // Online fallback is judged against the whole library, independent of
+    // the tag/"ready to cook" filters — a tag filter hiding local matches
+    // shouldn't make the app think nothing local exists.
+    if(recipeSearchTerm && recipeSearchMatches(recipeSearchTerm).length === 0){
+      renderOnlineRecipeResults(recipeSearchTerm);
+    } else {
+      onlineRecipeSearchSeq++;
+      if(onlineRecipeSearchTimer){ clearTimeout(onlineRecipeSearchTimer); onlineRecipeSearchTimer = null; }
+      const onlineBox = document.getElementById('onlineRecipeResults');
+      if(onlineBox) onlineBox.innerHTML = '';
+    }
+
     if(filtered.length === 0){
       list.innerHTML = '<div class="empty-note">' + (onlyReady ? 'Nothing fully matches your pantry yet — add more items or turn this filter off.' : 'No recipes match.') + '</div>';
       return;
@@ -2538,6 +2916,95 @@
       card.querySelector('.log-recipe-btn').addEventListener('click', (ev) => { ev.stopPropagation(); logRecipeToToday(r); });
       list.appendChild(card);
     });
+  }
+
+  // ---------- online recipe search (TheMealDB — free, no signup/key) ----------
+  // Mirrors the food-search-falls-back-to-Open-Food-Facts pattern in
+  // renderDbResults(): only fires when nothing local matches, after a
+  // debounce. TheMealDB has no nutrition data and its free-text ingredient
+  // measures ("1 1/2 lbs", "to taste") are too inconsistent to reliably
+  // estimate macros from, so these results show name/ingredients/method
+  // only — "Log it" opens the manual food form instead of guessing a
+  // calorie number.
+  let onlineRecipeSearchTimer = null;
+  let onlineRecipeSearchSeq = 0;
+
+  function renderOnlineRecipeResults(query){
+    const box = document.getElementById('onlineRecipeResults');
+    if(!box) return;
+    if(onlineRecipeSearchTimer){ clearTimeout(onlineRecipeSearchTimer); onlineRecipeSearchTimer = null; }
+    onlineRecipeSearchSeq++;
+    const seq = onlineRecipeSearchSeq;
+    box.innerHTML = '<div class="db-empty">No local match — checking TheMealDB online…</div>';
+    onlineRecipeSearchTimer = setTimeout(async function(){
+      let meals = null;
+      try {
+        const res = await fetch('https://www.themealdb.com/api/json/v1/1/search.php?s=' + encodeURIComponent(query));
+        const data = await res.json();
+        meals = data && data.meals;
+      } catch(e){
+        meals = null;
+      }
+      if(seq !== onlineRecipeSearchSeq) return; // superseded by newer input
+      if(!meals){
+        box.innerHTML = '<div class="db-empty">Online lookup failed — check your connection and try again.</div>';
+        return;
+      }
+      if(!meals.length){
+        box.innerHTML = '<div class="db-empty">No online match either.</div>';
+        return;
+      }
+      box.innerHTML = '<div class="db-empty">From TheMealDB:</div>';
+      meals.slice(0, 8).forEach(meal => {
+        const ingredientLines = [];
+        for(let i = 1; i <= 20; i++){
+          const ing = meal['strIngredient' + i];
+          const measure = meal['strMeasure' + i];
+          if(ing && ing.trim()) ingredientLines.push((measure && measure.trim() ? measure.trim() + ' ' : '') + ing.trim());
+        }
+        const card = document.createElement('div');
+        card.className = 'recipe-card';
+        card.innerHTML = `
+          <div class="recipe-head">
+            <div>
+              <div class="recipe-title"></div>
+              <div class="recipe-sub"></div>
+            </div>
+            <span class="chev">▾</span>
+          </div>
+          <div class="recipe-body">
+            <div class="note" style="margin-top:0;">Nutrition not available for online recipes — "Log it" opens the food form so you can fill in the calories.</div>
+            <div class="recipe-section-lbl">Ingredients</div>
+            <ul class="ing-list"></ul>
+            <div class="recipe-section-lbl">Method</div>
+            <p class="online-recipe-method"></p>
+            <button class="btn small log-recipe-btn">Log it</button>
+          </div>`;
+        card.querySelector('.recipe-title').textContent = meal.strMeal;
+        card.querySelector('.recipe-sub').textContent = [meal.strCategory, meal.strArea].filter(Boolean).join(' · ') + ' · from TheMealDB';
+        const ingList = card.querySelector('.ing-list');
+        ingredientLines.forEach(line => {
+          const li = document.createElement('li');
+          li.className = 'have';
+          li.textContent = line;
+          ingList.appendChild(li);
+        });
+        card.querySelector('.online-recipe-method').textContent = meal.strInstructions || '';
+        card.querySelector('.recipe-head').addEventListener('click', () => card.classList.toggle('open'));
+        card.querySelector('.log-recipe-btn').addEventListener('click', (ev) => {
+          ev.stopPropagation();
+          switchView('today');
+          document.getElementById('fName').value = meal.strMeal;
+          document.getElementById('fCal').value = '';
+          document.getElementById('fProt').value = '';
+          document.getElementById('fCarb').value = '';
+          document.getElementById('fFat').value = '';
+          pendingExtra = null;
+          document.getElementById('fName').focus();
+        });
+        box.appendChild(card);
+      });
+    }, 500);
   }
 
   // ---------- exercise library ----------
@@ -2641,19 +3108,21 @@
   }
   function saveProgram(){ safeSet('il_program', program); }
 
-  let activeDay = program[0].key;
+  let activeDay = nextDayToTrain();
   let pickerCat = 'all';
 
   function renderDayTabs(){
     const wrap = document.getElementById('dayTabs');
     wrap.innerHTML = '';
+    const upNextKey = nextDayToTrain();
     program.forEach(day => {
       const btn = document.createElement('button');
       btn.className = 'day-tab' + (day.key === activeDay ? ' active' : '');
       const last = lastPerformedDate(day.key);
       btn.innerHTML = '<span class="day-tab-label"></span><span class="day-tab-date"></span>';
       btn.querySelector('.day-tab-label').textContent = day.label;
-      btn.querySelector('.day-tab-date').textContent = last ? fmtShortDate(last) : 'Not logged yet';
+      const dateTxt = last ? fmtShortDate(last) : 'Not logged yet';
+      btn.querySelector('.day-tab-date').textContent = day.key === upNextKey ? dateTxt + ' · Up next' : dateTxt;
       btn.addEventListener('click', () => { activeDay = day.key; document.getElementById('exPicker').style.display='none'; renderDayTabs(); renderExercises(); });
       wrap.appendChild(btn);
     });
@@ -2688,7 +3157,7 @@
     const day = program.find(d => d.key === activeDay);
     showConfirm('Remove "' + day.label + ' — ' + day.name + '" from your program?', function(){
       program = program.filter(d => d.key !== activeDay);
-      activeDay = program[0].key;
+      activeDay = nextDayToTrain();
       saveProgram();
       renderDayTabs();
       renderExercises();
@@ -2872,6 +3341,20 @@
   let pausedAt = null;
   let pausedFromState = null;
   let timerTickHandle = null;
+  let restTargetNotified = false;
+  let autoRollRest = safeGet('il_auto_roll_rest', false);
+
+  document.getElementById('autoRollRest').checked = autoRollRest;
+  document.getElementById('autoRollRest').addEventListener('change', function(){
+    autoRollRest = this.checked;
+    safeSet('il_auto_roll_rest', autoRollRest);
+  });
+
+  // A short-long-short buzz when the rest timer hits its target, so the
+  // lifter doesn't have to keep glancing at the phone between sets.
+  function vibrateRestDone(){
+    if(navigator.vibrate) navigator.vibrate([200, 100, 200]);
+  }
 
   function currentTimerExercise(){
     const day = program.find(d => d.key === activeDay);
@@ -2948,6 +3431,12 @@
     const std = currentStandards();
     const targetSec = sessionState === 'lifting' ? std.setSec : std.restSec;
     clockEl.style.color = phaseStatusColor(phaseSec, targetSec);
+
+    if(sessionState === 'resting' && !restTargetNotified && phaseSec >= std.restSec){
+      restTargetNotified = true;
+      vibrateRestDone();
+      if(autoRollRest) startNextSetFromRest();
+    }
   }
   function startTicking(){ stopTicking(); timerTickHandle = setInterval(tick, 300); }
   function stopTicking(){ if(timerTickHandle){ clearInterval(timerTickHandle); timerTickHandle = null; } }
@@ -2986,9 +3475,31 @@
     const dates = Object.keys(log).filter(d => log[d].dayKey === dayKey).sort();
     return dates.length ? dates[dates.length - 1] : null;
   }
+
+  // The program is a repeating cycle, not a one-shot list — once the last
+  // day is trained, the next one due is Day 1 again. Found by finding
+  // whichever program day was trained most recently and stepping to the
+  // day after it, wrapping around. No history yet -> start at day 1.
+  function nextDayToTrain(){
+    let latestIdx = -1, latestDate = null;
+    program.forEach((d, i) => {
+      const last = lastPerformedDate(d.key);
+      if(last && (!latestDate || last > latestDate)){ latestDate = last; latestIdx = i; }
+    });
+    if(latestIdx === -1) return program[0].key;
+    return program[(latestIdx + 1) % program.length].key;
+  }
   function fmtShortDate(dateStr){
     const [y,m,d] = dateStr.split('-').map(Number);
     return new Date(y, m-1, d).toLocaleDateString(undefined, { month:'short', day:'numeric' });
+  }
+
+  // Shared by the manual tap and by auto-roll firing off the rest timer.
+  function startNextSetFromRest(){
+    sessionTotals.restingSeconds += (Date.now() - phaseStartTime) / 1000;
+    sessionState = 'lifting';
+    phaseStartTime = Date.now();
+    renderTimerButtons();
   }
 
   // One button doing double duty as Start/Finish set, instead of separate
@@ -3020,11 +3531,10 @@
       timerExerciseIdx++;
       sessionState = 'resting';
       phaseStartTime = Date.now();
+      restTargetNotified = false;
       renderExercises();
     } else if(sessionState === 'resting'){
-      sessionTotals.restingSeconds += (Date.now() - phaseStartTime) / 1000;
-      sessionState = 'lifting';
-      phaseStartTime = Date.now();
+      startNextSetFromRest();
     }
     renderTimerButtons();
   });
@@ -3041,6 +3551,7 @@
       sessionState = pausedFromState;
       pausedFromState = null;
       phaseStartTime = now;
+      if(sessionState === 'resting') restTargetNotified = false;
       startTicking();
     } else if(sessionState === 'lifting' || sessionState === 'resting'){
       const elapsed = (Date.now() - phaseStartTime) / 1000;
@@ -3076,8 +3587,14 @@
     pausedAt = null;
     pausedFromState = null;
     totalPausedMs = 0;
+    // Day's done — roll the program forward to whatever's next in the
+    // cycle (back to Day 1 once the last day is finished) so the app is
+    // already queued up next time instead of making the user pick.
+    activeDay = nextDayToTrain();
+    timerExerciseIdx = 0;
     renderTimerButtons();
     renderDayTabs();
+    renderExercises();
     renderTimeChart();
     renderBurnHistory();
     if(currentDate === todayStr()) renderToday();
@@ -3436,9 +3953,11 @@
     this.textContent = calendarExpanded ? 'Minimize' : 'Expand';
   });
 
-  function setupSectionToggle(btnId, bodyId){
-    let expanded = true;
+  function setupSectionToggle(btnId, bodyId, startExpanded){
+    let expanded = startExpanded !== false;
     const btn = document.getElementById(btnId);
+    document.getElementById(bodyId).style.display = expanded ? 'block' : 'none';
+    btn.textContent = expanded ? 'Minimize' : 'Expand';
     btn.addEventListener('click', function(){
       expanded = !expanded;
       document.getElementById(bodyId).style.display = expanded ? 'block' : 'none';
@@ -3449,6 +3968,8 @@
   setupSectionToggle('toggleMeasureBtn', 'measureBody');
   setupSectionToggle('togglePhotosBtn', 'photosBody');
   setupSectionToggle('toggleTrendsBtn', 'trendsBody');
+  setupSectionToggle('toggleRecipesBtn', 'recipesBody', false);
+  setupSectionToggle('toggleBarcodeBtn', 'barcodeBody');
 
   // ---------- progress photos (IndexedDB — photos are large, so they get
   // their own database instead of localStorage, which has a much smaller cap) ----------
