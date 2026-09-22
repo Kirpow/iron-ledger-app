@@ -207,6 +207,8 @@
   .entry .del:hover { color: var(--rust); }
   .entry.workout-entry { border-left: 3px solid var(--rust); }
   .entry.workout-entry .cals { color: var(--rust); }
+  .entry.cardio-entry { border-left: 3px solid var(--steel); }
+  .entry.cardio-entry .cals { color: var(--steel); }
   .meal-section { margin-bottom: 18px; }
   .meal-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
   .meal-name { font-family: 'Oswald', sans-serif; font-size: 18px; font-weight: 600; letter-spacing: 0.3px; color: var(--brass); text-transform: uppercase; }
@@ -315,8 +317,8 @@
   .ex-del:hover { color: var(--rust); }
   .add-ex-btn { margin-bottom: 14px; }
   .picker-panel { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius-m); padding: 14px; margin-bottom: 14px; }
-  .picker-tabs { display: flex; gap: 6px; margin-bottom: 10px; }
-  .picker-tab { flex: 1; padding: 7px; border-radius: var(--radius-s); border: 1px solid var(--border); background: var(--panel-2); color: var(--text-dim); font-size: 12.5px; cursor: pointer; }
+  .picker-tabs { display: flex; gap: 6px; margin-bottom: 10px; overflow-x: auto; padding-bottom: 2px; }
+  .picker-tab { flex: 0 0 auto; padding: 7px 12px; border-radius: var(--radius-s); border: 1px solid var(--border); background: var(--panel-2); color: var(--text-dim); font-size: 12.5px; white-space: nowrap; cursor: pointer; }
   .picker-tab.active { background: var(--brass); color: #1c1a12; border-color: var(--brass); font-weight: 600; }
   .lib-item { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 4px; border-bottom: 1px solid var(--border); }
   .lib-item:last-child { border-bottom: none; }
@@ -720,6 +722,20 @@
     </div>
 
     <div id="exerciseList"></div>
+
+    <div class="sec-head"><h3>Cardio</h3></div>
+    <div class="pantry-card" id="cardioCard">
+      <div class="row2">
+        <div class="field"><label class="f">Activity</label>
+          <select id="cardioType"></select>
+        </div>
+        <div class="field"><label class="f">Duration (min)</label><input type="text" inputmode="numeric" id="cardioMinutes" placeholder="30"></div>
+      </div>
+      <div class="field"><label class="f">Distance (optional)</label><input type="text" inputmode="decimal" id="cardioDistance" placeholder="e.g. 3.1 mi"></div>
+      <div class="note" id="cardioEstNote" style="margin:10px 0;">Estimated burn: 0 kcal</div>
+      <button class="btn" id="logCardioBtn" style="width:100%;">Log cardio</button>
+      <div id="cardioList" style="margin-top:12px;"></div>
+    </div>
   </section>
 
   <!-- PROGRESS -->
@@ -821,7 +837,7 @@
       <div class="note" style="margin-top:10px;">"Auto" follows your phone or browser's light/dark setting. More seasonal themes are planned — Halloween's the first.</div>
     </div>
 
-    <div class="sec-head"><h3>Your targets</h3></div>
+    <div class="sec-head"><h3>Today</h3></div>
     <div class="settings-card">
       <h4>About you</h4>
       <div class="row2">
@@ -867,25 +883,14 @@
       <button class="btn" id="saveTargetsBtn" style="margin-top:10px;">Save targets</button>
     </div>
 
-    <div class="sec-head"><h3>Lift</h3></div>
-    <div class="settings-card">
-      <h4>Rest timer</h4>
-      <label style="display:block; font-size:13px; color:var(--text-dim); line-height:1.5;">
-        <input type="checkbox" id="chimeOnRestEnd" style="width:16px; height:16px; vertical-align:middle; margin-right:8px; accent-color:var(--brass);">Play a chime when rest ends
-      </label>
-      <label style="display:block; margin-top:10px; font-size:13px; color:var(--text-dim); line-height:1.5;">
-        <input type="checkbox" id="autoRollRest" style="width:16px; height:16px; vertical-align:middle; margin-right:8px; accent-color:var(--brass);">Auto-start next set when rest ends — the timer decides, you don't have to watch it
-      </label>
-      <div class="note" style="margin-top:10px;">The phone also tries to vibrate, but iPhones don't support that for web apps like this one — the chime is what actually works on iOS. Both options apply the next time you're resting between sets.</div>
-    </div>
-
+    <div class="sec-head"><h3>Barcode lookup</h3></div>
     <div class="settings-card">
       <div class="sec-head" style="margin:0 0 12px;">
-        <h4 style="margin:0;">Barcode lookup (optional)</h4>
+        <h4 style="margin:0;">Data source (optional)</h4>
         <button class="link-btn" id="toggleBarcodeBtn">Minimize</button>
       </div>
       <div id="barcodeBody">
-        <div class="note" style="margin-top:0;">The barcode scanner uses Open Food Facts by default — free, no signup, and this works for anyone using the app with no setup. You can also connect a free USDA FoodData Central key, which is often more accurate for U.S. packaged foods and gets offered as a second option whenever a scan looks wrong. This key is only saved on this device — everyone using the app can (and can skip) set up their own.</div>
+        <div class="note" style="margin-top:0;">Used when logging food on Today and when scanning items into the pantry or shopping list on Kitchen. The barcode scanner uses Open Food Facts by default — free, no signup, and this works for anyone using the app with no setup. You can also connect a free USDA FoodData Central key, which is often more accurate for U.S. packaged foods and gets offered as a second option whenever a scan looks wrong. This key is only saved on this device — everyone using the app can (and can skip) set up their own.</div>
         <label class="f" style="margin-top:12px;">USDA API key</label>
         <input type="text" id="usdaKeyInput" placeholder="Paste your key here — leave blank to skip" autocomplete="off">
         <button class="link-btn" id="toggleUsdaHelp" style="padding:4px 0 0;">How do I get a free key?</button>
@@ -901,13 +906,14 @@
       </div>
     </div>
 
+    <div class="sec-head"><h3>Kitchen</h3></div>
     <div class="settings-card">
       <div class="sec-head" style="margin:0 0 12px;">
         <h4 style="margin:0;">Recipe search (optional)</h4>
         <button class="link-btn" id="toggleSpoonacularBtn">Minimize</button>
       </div>
       <div id="spoonacularBody">
-        <div class="note" style="margin-top:0;">Recipes tab search that finds nothing locally checks TheMealDB by default — free, no signup, but no calorie/macro info. Connect a free Spoonacular key instead and online results come with real macros and log in one tap, same as the built-in recipes. This key is only saved on this device. If it's ever invalid or over its daily limit, search quietly falls back to TheMealDB instead of failing.</div>
+        <div class="note" style="margin-top:0;">Kitchen tab search that finds nothing locally checks TheMealDB by default — free, no signup, but no calorie/macro info. Connect a free Spoonacular key instead and online results come with real macros and log in one tap, same as the built-in recipes. This key is only saved on this device. If it's ever invalid or over its daily limit, search quietly falls back to TheMealDB instead of failing.</div>
         <label class="f" style="margin-top:12px;">Spoonacular API key</label>
         <input type="text" id="spoonacularKeyInput" placeholder="Paste your key here — leave blank to use TheMealDB" autocomplete="off">
         <button class="link-btn" id="toggleSpoonacularHelp" style="padding:4px 0 0;">How do I get a free key?</button>
@@ -923,8 +929,20 @@
       </div>
     </div>
 
+    <div class="sec-head"><h3>Training</h3></div>
     <div class="settings-card">
-      <h4>Data</h4>
+      <h4>Rest timer</h4>
+      <label style="display:block; font-size:13px; color:var(--text-dim); line-height:1.5;">
+        <input type="checkbox" id="chimeOnRestEnd" style="width:16px; height:16px; vertical-align:middle; margin-right:8px; accent-color:var(--brass);">Play a chime when rest ends
+      </label>
+      <label style="display:block; margin-top:10px; font-size:13px; color:var(--text-dim); line-height:1.5;">
+        <input type="checkbox" id="autoRollRest" style="width:16px; height:16px; vertical-align:middle; margin-right:8px; accent-color:var(--brass);">Auto-start next set when rest ends — the timer decides, you don't have to watch it
+      </label>
+      <div class="note" style="margin-top:10px;">The phone also tries to vibrate, but iPhones don't support that for web apps like this one — the chime is what actually works on iOS. Both options apply the next time you're resting between sets.</div>
+    </div>
+
+    <div class="sec-head"><h3>Data</h3></div>
+    <div class="settings-card">
       <div class="note" style="margin-top:0;">Everything is stored privately in this browser only — nothing leaves your device. Clearing it removes all logged food and workout history.</div>
       <button class="btn ghost" id="resetAllBtn" style="margin-top:10px;">Clear all data</button>
       <button class="btn ghost" id="clearPantryBtn" style="margin-top:10px;">Clear pantry only</button>
@@ -997,8 +1015,8 @@
 <nav class="bottom">
   <div class="nav-inner">
     <button class="nav-btn active" data-view="today"><span class="ic">◧</span>Today</button>
-    <button class="nav-btn" data-view="recipes"><span class="ic">◫</span>Recipes</button>
-    <button class="nav-btn" data-view="workout"><span class="ic">◨</span>Lift</button>
+    <button class="nav-btn" data-view="recipes"><span class="ic">◫</span>Kitchen</button>
+    <button class="nav-btn" data-view="workout"><span class="ic">◨</span>Training</button>
     <button class="nav-btn" data-view="progress"><span class="ic">◪</span>Progress</button>
     <button class="nav-btn" data-view="settings"><span class="ic">◩</span>Settings</button>
   </div>
@@ -1413,7 +1431,9 @@
     }, { cal:0, prot:0, carb:0, fat:0 });
 
     const sessionLog = safeGet('il_session_log', {});
-    const burnedToday = (sessionLog[currentDate] && sessionLog[currentDate].caloriesBurned) || 0;
+    const liftBurnedToday = (sessionLog[currentDate] && sessionLog[currentDate].caloriesBurned) || 0;
+    const cardioBurnedToday = cardioBurnTotal(currentDate);
+    const burnedToday = liftBurnedToday + cardioBurnedToday;
     const effectiveTarget = targets.cal + burnedToday;
 
     document.getElementById('calConsumedNum').textContent = Math.round(sums.cal);
@@ -1459,7 +1479,26 @@
       });
       list.appendChild(row);
     }
-    if(entries.length === 0 && !(daySession && daySession.caloriesBurned > 0)){
+    if(cardioBurnedToday > 0){
+      const cardioEntries = getCardioLog(currentDate);
+      const row = document.createElement('div');
+      row.className = 'entry cardio-entry';
+      row.innerHTML = '<div class="info"><div class="name"></div><div class="macros"></div></div>' +
+        '<div class="cals"></div><button class="del" aria-label="Remove">×</button>';
+      row.querySelector('.name').textContent = '🏃 Cardio';
+      const cardioMins = cardioEntries.reduce((s, c) => s + (c.minutes || 0), 0);
+      row.querySelector('.macros').textContent = cardioEntries.length + ' session' + (cardioEntries.length > 1 ? 's' : '') + ' · ' + cardioMins + ' min';
+      row.querySelector('.cals').textContent = '-' + Math.round(cardioBurnedToday);
+      row.querySelector('.del').addEventListener('click', function(){
+        showConfirm('Remove today’s cardio log? This clears all cardio sessions and calories burned for ' + currentDate + '.', function(){
+          setCardioLog(currentDate, []);
+          renderToday();
+          renderCardio();
+        });
+      });
+      list.appendChild(row);
+    }
+    if(entries.length === 0 && !(daySession && daySession.caloriesBurned > 0) && cardioBurnedToday === 0){
       list.innerHTML += '<div class="empty-note">Nothing logged yet — add food above, log a recipe, or complete a workout.</div>';
     } else {
       MEALS.forEach(meal => {
@@ -1484,6 +1523,7 @@
       });
     }
     renderTodayWeight();
+    renderCardio();
    } catch(err){
      const list = document.getElementById('foodEntries');
      if(list) list.innerHTML = '<div class="empty-note">Something went wrong showing today\u2019s log — try reloading. (' + (err && err.message ? err.message : err) + ')</div>';
@@ -3505,6 +3545,84 @@
     return { kcal: Math.round(kcal), min: Math.round(min) };
   }
 
+  // ---------- cardio ----------
+  const CARDIO_TYPES = [
+    { key:'walk', label:'Walk', met:3.5 },
+    { key:'run', label:'Run', met:9.8 },
+    { key:'bike', label:'Bike', met:7.5 },
+    { key:'row', label:'Row', met:7 },
+    { key:'swim', label:'Swim', met:6 },
+    { key:'elliptical', label:'Elliptical', met:5 },
+    { key:'jumprope', label:'Jump rope', met:11 },
+    { key:'hike', label:'Hike', met:6 },
+    { key:'other', label:'Other', met:5 },
+  ];
+  function cardioMet(key){ const t = CARDIO_TYPES.find(c => c.key === key); return t ? t.met : 5; }
+  function cardioLabel(key){ const t = CARDIO_TYPES.find(c => c.key === key); return t ? t.label : 'Cardio'; }
+  function estimateCardioKcal(typeKey, minutes){
+    const wLb = parseFloat(profile.weight) || 185;
+    const wKg = wLb * 0.453592;
+    return Math.round(cardioMet(typeKey) * 3.5 * wKg / 200 * minutes);
+  }
+  function getCardioLog(date){ return safeGet('il_cardio_' + date, []); }
+  function setCardioLog(date, arr){ safeSet('il_cardio_' + date, arr); }
+  function cardioBurnTotal(date){ return getCardioLog(date).reduce((s, c) => s + (c.kcal || 0), 0); }
+
+  document.getElementById('cardioType').innerHTML = CARDIO_TYPES.map(c => '<option value="' + c.key + '">' + c.label + '</option>').join('');
+
+  function updateCardioEstimate(){
+    const type = document.getElementById('cardioType').value;
+    const minutes = parseFloat(document.getElementById('cardioMinutes').value) || 0;
+    const kcal = minutes > 0 ? estimateCardioKcal(type, minutes) : 0;
+    document.getElementById('cardioEstNote').textContent = 'Estimated burn: ' + kcal + ' kcal';
+  }
+  document.getElementById('cardioType').addEventListener('change', updateCardioEstimate);
+  document.getElementById('cardioMinutes').addEventListener('input', updateCardioEstimate);
+
+  function renderCardio(){
+    const box = document.getElementById('cardioList');
+    const entries = getCardioLog(currentDate);
+    box.innerHTML = '';
+    if(entries.length === 0){
+      box.innerHTML = '<div class="empty-note">No cardio logged for this day yet.</div>';
+      return;
+    }
+    entries.forEach((c, idx) => {
+      const row = document.createElement('div');
+      row.className = 'entry cardio-entry';
+      row.innerHTML = '<div class="info"><div class="name"></div><div class="macros"></div></div>' +
+        '<div class="cals"></div><button class="del" aria-label="Remove">×</button>';
+      row.querySelector('.name').textContent = '🏃 ' + cardioLabel(c.type);
+      row.querySelector('.macros').textContent = c.minutes + ' min' + (c.distance ? ' · ' + c.distance : '');
+      row.querySelector('.cals').textContent = '-' + Math.round(c.kcal);
+      row.querySelector('.del').addEventListener('click', function(){
+        const all = getCardioLog(currentDate);
+        all.splice(idx, 1);
+        setCardioLog(currentDate, all);
+        renderCardio();
+        renderToday();
+      });
+      box.appendChild(row);
+    });
+  }
+
+  document.getElementById('logCardioBtn').addEventListener('click', function(){
+    const type = document.getElementById('cardioType').value;
+    const minutesInput = document.getElementById('cardioMinutes');
+    const minutes = parseFloat(minutesInput.value) || 0;
+    if(minutes <= 0){ minutesInput.focus(); return; }
+    const distance = document.getElementById('cardioDistance').value.trim();
+    const kcal = estimateCardioKcal(type, minutes);
+    const entries = getCardioLog(currentDate);
+    entries.push({ id: 'cardio-' + Date.now(), type, minutes: Math.round(minutes), distance, kcal });
+    setCardioLog(currentDate, entries);
+    minutesInput.value = '';
+    document.getElementById('cardioDistance').value = '';
+    updateCardioEstimate();
+    renderCardio();
+    renderToday();
+  });
+
   function renderExercises(){
     const day = program.find(d => d.key === activeDay);
     document.getElementById('workoutMeta').innerHTML = '<strong>' + day.name + '</strong><br>' + day.note;
@@ -4240,7 +4358,7 @@
       const key = fmtDateKey(calViewYear, calViewMonth, d);
       const hasFood = getLog(key).length > 0;
       const sess = sessionLog[key];
-      const hasWorkout = !!(sess && (sess.caloriesBurned > 0 || sess.sessions > 0));
+      const hasWorkout = !!(sess && (sess.caloriesBurned > 0 || sess.sessions > 0)) || cardioBurnTotal(key) > 0;
       const hasPhoto = photoDates.has(key);
 
       const cell = document.createElement('div');
@@ -4594,6 +4712,7 @@
   renderShopList();
   renderDayTabs();
   renderExercises();
+  renderCardio();
   renderTimerButtons();
   renderProgress();
   document.getElementById('dateNavToday').style.display = 'flex';
